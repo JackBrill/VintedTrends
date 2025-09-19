@@ -6,17 +6,9 @@ const WEBHOOK_URL = 'https://discord.com/api/webhooks/1418689032728219678/sIkXJ-
 const CHECK_INTERVAL = 30 * 1000; // 30 seconds
 const BATCH_DURATION = 5 * 60 * 1000; // 5 minutes
 
-// Function to ask user for number of items
 function askQuestion(query) {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  });
-
-  return new Promise(resolve => rl.question(query, ans => {
-    rl.close();
-    resolve(ans);
-  }));
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise(resolve => rl.question(query, ans => { rl.close(); resolve(ans); }));
 }
 
 (async () => {
@@ -49,6 +41,7 @@ function askQuestion(query) {
 
         trackedItems.push({ name, subtitle, price, link, image, sold: false });
 
+        // Send initial Discord embed
         await fetch(WEBHOOK_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -70,19 +63,19 @@ function askQuestion(query) {
       const batchStart = Date.now();
 
       while (Date.now() - batchStart < BATCH_DURATION) {
-        for (const item of trackedItems) {
-          if (item.sold) continue;
+        // ✅ Parallel sold status checks
+        await Promise.all(trackedItems.map(async (item) => {
+          if (item.sold) return;
 
           const itemPage = await context.newPage();
           try {
             await itemPage.goto(item.link, { waitUntil: 'networkidle' });
-            await itemPage.waitForTimeout(2000);
 
             const soldElement = await itemPage.$('[data-testid="item-status--content"]');
             const isSold = soldElement ? (await soldElement.innerText()).toLowerCase().includes('sold') : false;
 
             if (isSold) {
-              console.log(`Item SOLD: ${item.name}`);
+              console.log(`${new Date().toLocaleTimeString()}: Item SOLD: ${item.name}`);
               item.sold = true;
 
               await fetch(WEBHOOK_URL, {
@@ -107,14 +100,13 @@ function askQuestion(query) {
           } finally {
             await itemPage.close();
           }
-        }
+        }));
 
         await new Promise(r => setTimeout(r, CHECK_INTERVAL));
       }
 
       console.log('Batch duration ended. Moving to next batch...');
     }
-
   } catch (err) {
     console.error('Error:', err);
   } finally {
