@@ -23,10 +23,21 @@ function askQuestion(query) {
   const context = await browser.newContext();
   const page = await context.newPage();
 
+  // Block unnecessary resources on catalog page
+  await page.route('**/*', (route) => {
+    const type = route.request().resourceType();
+    if (['image', 'stylesheet', 'font'].includes(type)) route.abort();
+    else route.continue();
+  });
+
   try {
     while (true) {
       console.log(`Fetching a batch of ${BATCH_SIZE} newest items...`);
-      await page.goto('https://www.vinted.co.uk/catalog?search_id=26450535328&page=1&order=newest_first', { waitUntil: 'networkidle' });
+
+      await page.goto(
+        'https://www.vinted.co.uk/catalog?search_id=26450535328&page=1&order=newest_first', 
+        { waitUntil: 'domcontentloaded', timeout: 45000 }
+      );
       await page.waitForSelector('div[data-testid="grid-item"]', { timeout: 20000 });
 
       const items = await page.$$('div[data-testid="grid-item"]');
@@ -41,7 +52,6 @@ function askQuestion(query) {
 
         trackedItems.push({ name, subtitle, price, link, image, sold: false });
 
-        // Send initial Discord embed
         await fetch(WEBHOOK_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -63,20 +73,17 @@ function askQuestion(query) {
       const batchStart = Date.now();
 
       while (Date.now() - batchStart < BATCH_DURATION) {
-        // ✅ Parallel sold status checks with faster page load
+        // Parallel sold checks
         await Promise.all(trackedItems.map(async (item) => {
           if (item.sold) return;
 
           const itemPage = await context.newPage();
 
-          // Block unnecessary resources
+          // Block images/styles/fonts for faster load
           await itemPage.route('**/*', (route) => {
             const type = route.request().resourceType();
-            if (type === 'image' || type === 'stylesheet' || type === 'font') {
-              route.abort();
-            } else {
-              route.continue();
-            }
+            if (['image', 'stylesheet', 'font'].includes(type)) route.abort();
+            else route.continue();
           });
 
           try {
