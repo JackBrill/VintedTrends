@@ -2,30 +2,24 @@ import { chromium } from 'playwright';
 
 (async () => {
   // Launch browser
-  const browser = await chromium.launch({ headless: true });
-  
-  // Fresh context for guest access
+  const browser = await chromium.launch({ headless: true }); // headless is fine for VPS
   const context = await browser.newContext();
-
-  // Open a new page
   const page = await context.newPage();
 
-  // Go to Vinted UK
-  await page.goto('https://www.vinted.co.uk', { waitUntil: 'networkidle' });
+  // Go to Vinted UK homepage
+  await page.goto('https://www.vinted.co.uk/', { waitUntil: 'networkidle' });
 
-  // Wait for the main items to load
-  await page.waitForSelector('a[data-testid="catalog-item-link"]');
+  // Wait for items to load
+  await page.waitForSelector('.feed-grid__item'); // container for items
 
-  // Get the first item
-  const firstItem = await page.$('a[data-testid="catalog-item-link"]');
+  // Grab first item
+  const firstItem = await page.$('.feed-grid__item');
 
-  // Extract name and price
-  const name = await firstItem.$eval('[data-testid="catalog-item-title"]', el => el.innerText.trim());
-  const price = await firstItem.$eval('[data-testid="catalog-item-price"]', el => el.innerText.trim());
+  // Get name and price
+  const name = await firstItem.$eval('.feed-item__title', el => el.textContent.trim());
+  const price = await firstItem.$eval('.feed-item__price', el => el.textContent.trim());
 
-  console.log('First item name:', name);
-  console.log('First item price:', price);
+  console.log('First item:', { name, price });
 
-  // Close browser
   await browser.close();
 })();
