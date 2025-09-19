@@ -45,9 +45,9 @@ const WEBHOOK_URL = 'https://discord.com/api/webhooks/1418689032728219678/sIkXJ-
     // Function to check if item is sold
     const checkSoldStatus = async () => {
       try {
+        // Refresh the item page
         await page.goto(link, { waitUntil: 'networkidle' });
-        // wait a moment for the sold status to appear
-        await page.waitForTimeout(2000);
+        await page.waitForTimeout(2000); // wait for the DOM to update
 
         const soldElement = await page.$('[data-testid="item-status--content"]');
         if (soldElement) {
@@ -72,18 +72,20 @@ const WEBHOOK_URL = 'https://discord.com/api/webhooks/1418689032728219678/sIkXJ-
             clearInterval(interval); // stop checking
             await browser.close();
           } else {
-            console.log('Item is still available.');
+            console.log(`${new Date().toLocaleTimeString()}: Item still available.`);
           }
         } else {
-          console.log('Sold status element not found, item still available.');
+          console.log(`${new Date().toLocaleTimeString()}: Sold status element not found, item still available.`);
         }
       } catch (err) {
         console.error('Error checking sold status:', err);
       }
     };
 
-    // Check every 10 seconds
-    const interval = setInterval(checkSoldStatus, 10000);
+    // Start checking every 10 seconds
+    const interval = setInterval(() => {
+      checkSoldStatus().catch(console.error);
+    }, 10000);
 
   } catch (err) {
     console.error('Error:', err);
