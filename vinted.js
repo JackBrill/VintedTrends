@@ -23,7 +23,7 @@ function askQuestion(query) {
   const context = await browser.newContext();
   const page = await context.newPage();
 
-  // Block unnecessary resources on catalog page
+  // Block images/styles/fonts for faster catalog load
   await page.route('**/*', (route) => {
     const type = route.request().resourceType();
     if (['image', 'stylesheet', 'font'].includes(type)) route.abort();
@@ -33,57 +33,51 @@ function askQuestion(query) {
   try {
     while (true) {
       console.log(`Fetching a batch of ${BATCH_SIZE} newest items...`);
+      await page.goto('https://www.vinted.co.uk/catalog?search_id=26450535328&page=1&order=newest_first', 
+                      { waitUntil: 'domcontentloaded', timeout: 45000 });
 
-      await page.goto('https://www.vinted.co.uk/catalog?search_id=26450535328&page=1&order=newest_first', { waitUntil: 'domcontentloaded', timeout: 45000 });
-
-      // Scroll until enough items are loaded
-      let items = [];
-      let scrollAttempts = 0;
-      while (items.length < BATCH_SIZE && scrollAttempts < 20) {
-        items = await page.$$('div[data-testid="grid-item"]');
-        if (items.length >= BATCH_SIZE) break;
-        await page.evaluate(() => window.scrollBy(0, window.innerHeight));
-        await page.waitForTimeout(500);
-        scrollAttempts++;
-      }
-
-      if (items.length === 0) {
+      // Wait for new item cards
+      const items = await page.$$('div.homepage-blocks__item');
+      if (!items.length) {
         console.log('No items found. Retrying...');
+        await new Promise(r => setTimeout(r, 5000));
         continue;
       }
 
       const trackedItems = [];
 
       for (const item of items.slice(0, BATCH_SIZE)) {
+        const name = await item.$eval('a', el => el.getAttribute('title') || 'No Title');
+        const link = await item.$eval('a', el => el.href);
+        const image = await item.$eval('img', el => el.src);
+        let price = 'Unknown';
         try {
-          const name = await item.$eval('[data-testid$="--description-title"]', el => el.innerText.trim());
-          const subtitle = await item.$eval('[data-testid$="--description-subtitle"]', el => el.innerText.trim());
-          const price = await item.$eval('[data-testid$="--price-text"]', el => el.innerText.trim());
-          const link = await item.$eval('a[data-testid$="--overlay-link"]', el => el.href);
-          const image = await item.$eval('img[data-testid$="--image--img"]', el => el.src);
+          price = await item.$eval('span', el => el.innerText.trim());
+        } catch {}
+        let subtitle = '';
+        try {
+          subtitle = await item.$eval('p', el => el.innerText.trim());
+        } catch {}
 
-          trackedItems.push({ name, subtitle, price, link, image, sold: false });
+        trackedItems.push({ name, subtitle, price, link, image, sold: false });
 
-          // Send initial Discord embed
-          await fetch(WEBHOOK_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              embeds: [{
-                title: name,
-                url: link,
-                description: `${subtitle}\nPrice: **${price}**`,
-                color: 0x1abc9c,
-                image: { url: image },
-                footer: { text: 'Vinted.co.uk' }
-              }]
-            })
-          });
+        // Send initial Discord embed
+        await fetch(WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            embeds: [{
+              title: name,
+              url: link,
+              description: `${subtitle}\nPrice: **${price}**`,
+              color: 0x1abc9c,
+              image: { url: image },
+              footer: { text: 'Vinted.co.uk' }
+            }]
+          })
+        });
 
-          console.log('Tracking item:', name);
-        } catch (err) {
-          console.error('Skipped item during initial fetch:', err.message);
-        }
+        console.log('Tracking item:', name);
       }
 
       const batchStart = Date.now();
@@ -93,7 +87,9 @@ function askQuestion(query) {
           if (item.sold) return;
 
           const itemPage = await context.newPage();
-          await itemPage.route('**/*', route => {
+
+          // Block images/styles/fonts for faster load
+          await itemPage.route('**/*', (route) => {
             const type = route.request().resourceType();
             if (['image', 'stylesheet', 'font'].includes(type)) route.abort();
             else route.continue();
@@ -101,6 +97,7 @@ function askQuestion(query) {
 
           try {
             await itemPage.goto(item.link, { waitUntil: 'domcontentloaded', timeout: 15000 });
+
             const soldElement = await itemPage.$('[data-testid="item-status--content"]');
             const isSold = soldElement ? (await soldElement.innerText()).toLowerCase().includes('sold') : false;
 
