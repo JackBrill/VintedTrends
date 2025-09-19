@@ -1,10 +1,9 @@
-// vinted.js
 import { chromium } from 'playwright';
 import fetch from 'node-fetch';
 
 const WEBHOOK_URL = 'https://discord.com/api/webhooks/1418689032728219678/sIkXJ-SgQYBzZX2J3p6jOwMwzdS-atWzpJfOm8_N5AdHDdF3RMgC-t1UhvfWv49WmOUo';
 const CHECK_INTERVAL = 30 * 1000; // 30 seconds
-const MAX_ITEMS = 15; // track 5 items
+const MAX_ITEMS = 15;
 
 (async () => {
   const browser = await chromium.launch({ headless: true });
@@ -12,7 +11,7 @@ const MAX_ITEMS = 15; // track 5 items
   const page = await context.newPage();
 
   try {
-    // Grab 5 newest items once
+    // 1️⃣ Grab the first 5 newest items once
     await page.goto('https://www.vinted.co.uk/catalog?search_id=26450535328&page=1&order=newest_first', { waitUntil: 'networkidle' });
     await page.waitForSelector('div[data-testid="grid-item"]', { timeout: 20000 });
 
@@ -28,7 +27,7 @@ const MAX_ITEMS = 15; // track 5 items
 
       trackedItems.push({ name, subtitle, price, link, image, sold: false });
 
-      // Send initial listing to Discord
+      // Send initial Discord notification
       await fetch(WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -46,10 +45,10 @@ const MAX_ITEMS = 15; // track 5 items
       console.log('Tracking item:', name);
     }
 
-    // Function to check sold status for all tracked items
+    // 2️⃣ Only check these same 5 items every 30s
     const checkSoldStatus = async () => {
       for (const item of trackedItems) {
-        if (item.sold) continue; // skip already sold items
+        if (item.sold) continue;
 
         const itemPage = await context.newPage();
         try {
@@ -57,11 +56,7 @@ const MAX_ITEMS = 15; // track 5 items
           await itemPage.waitForTimeout(2000);
 
           const soldElement = await itemPage.$('[data-testid="item-status--content"]');
-          let isSold = false;
-          if (soldElement) {
-            const statusText = await soldElement.innerText();
-            if (statusText.toLowerCase().includes('sold')) isSold = true;
-          }
+          const isSold = soldElement ? (await soldElement.innerText()).toLowerCase().includes('sold') : false;
 
           if (isSold) {
             console.log(`Item SOLD: ${item.name}`);
@@ -92,7 +87,6 @@ const MAX_ITEMS = 15; // track 5 items
       }
     };
 
-    // Run the check every 30 seconds
     setInterval(checkSoldStatus, CHECK_INTERVAL);
 
   } catch (err) {
