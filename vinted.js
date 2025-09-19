@@ -1,16 +1,13 @@
-// vinted.js
 import { chromium } from 'playwright';
 
 (async () => {
-  const browser = await chromium.launch({ headless: true }); // headless=true for VPS
-  const context = await browser.newContext();
-  const page = await context.newPage();
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage();
 
   try {
     await page.goto('https://www.vinted.co.uk/', { waitUntil: 'networkidle' });
 
-    // Wait for items to appear
-    await page.waitForSelector('.feed-grid__item', { timeout: 15000 });
+    await page.waitForSelector('.feed-grid__item');
 
     const firstItem = await page.$('.feed-grid__item');
 
@@ -22,7 +19,7 @@ import { chromium } from 'playwright';
     console.log('Price:', price);
 
   } catch (err) {
-    console.error('Error scraping Vinted:', err);
+    console.error(err);
   } finally {
     await browser.close();
   }
