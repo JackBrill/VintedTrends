@@ -1,5 +1,4 @@
 import { chromium } from 'playwright';
-import fetch from 'node-fetch'; // if not using Node 18+, install with npm i node-fetch
 
 const WEBHOOK_URL = 'https://discord.com/api/webhooks/1418689032728219678/sIkXJ-SgQYBzZX2J3p6jOwMwzdS-atWzpJfOm8_N5AdHDdF3RMgC-t1UhvfWv49WmOUo';
 
