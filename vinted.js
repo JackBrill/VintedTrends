@@ -1,3 +1,50 @@
+// vinted.js
+import { chromium } from 'playwright';
+import readline from 'readline/promises';
+import process from 'process';
+
+// High-quality proxies list
+const PROXIES = [
+  '208.66.76.70:5994:mtqikwov:autmrqhdcnfn',
+  '72.1.153.25:5417:mtqikwov:autmrqhdcnfn',
+  '150.241.248.232:7449:mtqikwov:autmrqhdcnfn',
+  '138.226.77.124:7313:mtqikwov:autmrqhdcnfn',
+  '45.196.32.223:5855:mtqikwov:autmrqhdcnfn',
+  '45.196.51.227:5923:mtqikwov:autmrqhdcnfn',
+  '46.203.47.181:5680:mtqikwov:autmrqhdcnfn',
+  '62.164.231.66:9378:mtqikwov:autmrqhdcnfn',
+  '45.196.54.120:6699:mtqikwov:autmrqhdcnfn',
+  '46.203.20.40:6541:mtqikwov:autmrqhdcnfn',
+  '154.194.27.8:6548:mtqikwov:autmrqhdcnfn',
+  '104.252.59.11:7483:mtqikwov:autmrqhdcnfn',
+  '45.196.52.181:6196:mtqikwov:autmrqhdcnfn',
+  '46.203.15.117:7118:mtqikwov:autmrqhdcnfn',
+  '45.56.177.51:8852:mtqikwov:autmrqhdcnfn',
+  '46.203.144.26:7793:mtqikwov:autmrqhdcnfn',
+  '130.180.231.36:8178:mtqikwov:autmrqhdcnfn',
+  '104.252.81.67:5938:mtqikwov:autmrqhdcnfn',
+  '104.252.81.97:5968:mtqikwov:autmrqhdcnfn',
+  '154.194.26.109:6350:mtqikwov:autmrqhdcnfn'
+];
+
+// Helper to get a random proxy
+function getRandomProxy() {
+  const proxyStr = PROXIES[Math.floor(Math.random() * PROXIES.length)];
+  const [host, port, user, pass] = proxyStr.split(':');
+  return { host, port, user, pass };
+}
+
+// Prompt user for settings
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+const NUM_ITEMS = parseInt(await rl.question('How many items to track? '), 10);
+const CHECK_INTERVAL = parseInt(await rl.question('How often to check each item (seconds)? '), 10) * 1000;
+const BATCH_DURATION = parseInt(await rl.question('How long before switching to new items (seconds)? '), 10) * 1000;
+rl.close();
+
+// Track seen items and current catalog page
+const seenItemIds = new Set();
+let catalogPage = 1;
+
 async function fetchAndTrackItems() {
   let attempt = 1;
 
@@ -9,7 +56,7 @@ async function fetchAndTrackItems() {
     const browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({
       proxy: { server: `http://${proxy.host}:${proxy.port}`, username: proxy.user, password: proxy.pass },
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36',
       viewport: { width: 1280, height: 800 }
     });
 
@@ -17,9 +64,9 @@ async function fetchAndTrackItems() {
     let items = [];
 
     try {
-      console.log('Navigating to Vinted catalog...');
+      console.log(`Navigating to Vinted catalog, page ${catalogPage}...`);
       const response = await page.goto(
-        'https://www.vinted.co.uk/catalog?search_id=26450535328&page=1&order=newest_first',
+        `https://www.vinted.co.uk/catalog?search_id=26450535328&page=${catalogPage}&order=newest_first`,
         { waitUntil: 'domcontentloaded', timeout: 30000 }
       );
       console.log(`Response status: ${response.status()}`);
@@ -28,21 +75,42 @@ async function fetchAndTrackItems() {
       items = await page.$$('div[data-testid="grid-item"]');
       console.log(`Found ${items.length} items on the page.`);
 
+      if (items.length === 0) {
+        console.log('No items found, retrying next page...');
+        catalogPage++;
+        attempt++;
+        await browser.close();
+        continue;
+      }
+
       const trackedItems = [];
-      for (const item of items.slice(0, NUM_ITEMS)) {
+      for (const item of items) {
         try {
+          const id = await item.getAttribute('data-id');
+          if (seenItemIds.has(id)) continue; // skip duplicates
+          seenItemIds.add(id);
+
           const name = await item.$eval('[data-testid$="--description-title"]', el => el.innerText.trim());
           const price = await item.$eval('[data-testid$="--price-text"]', el => el.innerText.trim());
           const link = await item.$eval('a[data-testid$="--overlay-link"]', el => el.href);
-          trackedItems.push({ name, price, link, sold: false });
+
+          trackedItems.push({ id, name, price, link, sold: false });
           console.log(`Tracking item: ${name} | ${link} | ${price}`);
+
+          if (trackedItems.length >= NUM_ITEMS) break; // limit items per batch
         } catch (err) {
           console.log('Skipped an item due to error:', err.message);
         }
       }
 
-      let keepChecking = true;
+      if (trackedItems.length === 0) {
+        console.log('No new items to track, moving to next page...');
+        catalogPage++;
+        await browser.close();
+        continue;
+      }
 
+      let keepChecking = true;
       const interval = setInterval(async () => {
         if (!keepChecking) return;
 
@@ -51,9 +119,11 @@ async function fetchAndTrackItems() {
           const itemPage = await context.newPage();
           try {
             await itemPage.goto(item.link, { waitUntil: 'domcontentloaded', timeout: 15000 });
-            await itemPage.waitForTimeout(1000);
+            await itemPage.waitForTimeout(2000);
+
             const soldElement = await itemPage.$('[data-testid="item-status--content"]');
             const isSold = soldElement ? (await soldElement.innerText()).toLowerCase().includes('sold') : false;
+
             if (isSold) {
               console.log(`✅ Item SOLD: ${item.name} | ${item.link} | ${item.price}`);
               item.sold = true;
@@ -75,11 +145,15 @@ async function fetchAndTrackItems() {
       clearInterval(interval);
       await browser.close();
 
+      catalogPage++; // move to next page for next batch
+      attempt = 1; // reset attempt
+
     } catch (err) {
       console.log('Navigation or extraction error:', err.message);
       await browser.close();
+      attempt++;
     }
-
-    attempt = 1; // reset attempt for next batch
   }
 }
+
+fetchAndTrackItems().catch(err => console.error(err));
