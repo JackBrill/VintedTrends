@@ -1,3 +1,4 @@
+// vinted.js
 import { chromium } from 'playwright';
 
 (async () => {
@@ -6,20 +7,22 @@ import { chromium } from 'playwright';
   const page = await context.newPage();
 
   try {
-    await page.goto('https://www.vinted.co.uk', { waitUntil: 'domcontentloaded' });
+    await page.goto('https://www.vinted.co.uk', { waitUntil: 'networkidle' });
 
-    // Wait for first feed item (10s timeout)
-    const firstItem = await page.waitForSelector('div.feed-grid__item', { timeout: 10000 });
+    // Wait for listings to appear (10s timeout)
+    await page.waitForSelector('[data-testid="feed-item"]', { timeout: 10000 });
+
+    const firstItem = await page.$('[data-testid="feed-item"]');
 
     if (firstItem) {
-      const name = await firstItem.$eval('h3', el => el.innerText.trim()).catch(() => 'N/A');
-      const price = await firstItem.$eval('span[data-testid="price"]', el => el.innerText.trim()).catch(() => 'N/A');
+      const name = await firstItem.$eval('[data-testid="feed-item--description-title"]', el => el.innerText.trim());
+      const price = await firstItem.$eval('[data-testid="feed-item--price-text"]', el => el.innerText.trim());
 
       console.log('First item:');
       console.log('Name:', name);
       console.log('Price:', price);
     } else {
-      console.log('No items found on the home page.');
+      console.log('No items found.');
     }
 
   } catch (err) {
