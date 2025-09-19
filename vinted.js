@@ -32,115 +32,122 @@ function getRandomProxy() {
   return { host, port, user, pass };
 }
 
-// Main function
+// Settings
+const BATCH_SIZE = 10;              // number of items to track
+const CHECK_INTERVAL = 10 * 1000;   // 10 seconds
+const BATCH_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// Main loop
 (async () => {
-  const BATCH_SIZE = 10; // number of items to track
-  const CHECK_INTERVAL = 10 * 1000; // 10 seconds
-  const BATCH_DURATION = 5 * 60 * 1000; // 5 minutes
+  while (true) {
+    let attempt = 1;
+    let items = [];
 
-  let attempt = 1;
-  let items = [];
+    while (items.length < BATCH_SIZE && attempt <= 5) {
+      const proxy = getRandomProxy();
+      console.log(`=== Attempt ${attempt} ===`);
+      console.log(`Using proxy: ${proxy.host}:${proxy.port}`);
 
-  while (items.length < BATCH_SIZE && attempt <= 5) {
-    const proxy = getRandomProxy();
-    console.log(`=== Attempt ${attempt} ===`);
-    console.log(`Using proxy: ${proxy.host}:${proxy.port}`);
+      const browser = await chromium.launch({ headless: true });
+      const context = await browser.newContext({
+        proxy: {
+          server: `http://${proxy.host}:${proxy.port}`,
+          username: proxy.user,
+          password: proxy.pass
+        },
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36',
+        viewport: { width: 1280, height: 800 }
+      });
 
-    const browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext({
-      proxy: {
-        server: `http://${proxy.host}:${proxy.port}`,
-        username: proxy.user,
-        password: proxy.pass
-      },
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36',
-      viewport: { width: 1280, height: 800 }
-    });
+      const page = await context.newPage();
 
-    const page = await context.newPage();
+      try {
+        console.log('Navigating to Vinted catalog...');
+        const response = await page.goto(
+          'https://www.vinted.co.uk/catalog?search_id=26450535328&page=1&order=newest_first',
+          { waitUntil: 'domcontentloaded', timeout: 30000 }
+        );
 
-    try {
-      console.log('Navigating to Vinted catalog...');
-      const response = await page.goto(
-        'https://www.vinted.co.uk/catalog?search_id=26450535328&page=1&order=newest_first',
-        { waitUntil: 'domcontentloaded', timeout: 30000 }
-      );
+        console.log(`Response status: ${response.status()}`);
+        await page.waitForTimeout(2000);
 
-      console.log(`Response status: ${response.status()}`);
-      await page.waitForTimeout(2000); // wait a moment for page to stabilize
+        items = await page.$$('div[data-testid="grid-item"]');
+        console.log(`Found ${items.length} items on the page.`);
 
-      items = await page.$$('div[data-testid="grid-item"]');
-      console.log(`Found ${items.length} items on the page.`);
-
-      if (items.length < BATCH_SIZE) {
-        console.log('Not enough items, retrying...');
-        attempt++;
-        await browser.close();
-        continue;
-      }
-
-      console.log(`Tracking first ${BATCH_SIZE} items...`);
-
-      const trackedItems = [];
-      for (const item of items.slice(0, BATCH_SIZE)) {
-        try {
-          const name = await item.$eval('[data-testid$="--description-title"]', el => el.innerText.trim());
-          const subtitle = await item.$eval('[data-testid$="--description-subtitle"]', el => el.innerText.trim());
-          const price = await item.$eval('[data-testid$="--price-text"]', el => el.innerText.trim());
-          const link = await item.$eval('a[data-testid$="--overlay-link"]', el => el.href);
-          const image = await item.$eval('img[data-testid$="--image--img"]', el => el.src);
-
-          trackedItems.push({ name, subtitle, price, link, image, sold: false });
-          console.log('Tracking item:', name);
-        } catch (err) {
-          console.log('Skipped an item due to error:', err.message);
+        if (items.length < BATCH_SIZE) {
+          console.log('Not enough items, retrying...');
+          attempt++;
+          await browser.close();
+          continue;
         }
-      }
 
-      // Check sold status in intervals
-      const interval = setInterval(async () => {
-        for (const item of trackedItems) {
-          if (item.sold) continue;
+        console.log(`Tracking first ${BATCH_SIZE} items...`);
 
-          const itemPage = await context.newPage();
+        const trackedItems = [];
+        for (const item of items.slice(0, BATCH_SIZE)) {
           try {
-            await itemPage.goto(item.link, { waitUntil: 'domcontentloaded', timeout: 15000 });
-            await itemPage.waitForTimeout(2000);
+            const name = await item.$eval('[data-testid$="--description-title"]', el => el.innerText.trim());
+            const subtitle = await item.$eval('[data-testid$="--description-subtitle"]', el => el.innerText.trim());
+            const price = await item.$eval('[data-testid$="--price-text"]', el => el.innerText.trim());
+            const link = await item.$eval('a[data-testid$="--overlay-link"]', el => el.href);
 
-            const soldElement = await itemPage.$('[data-testid="item-status--content"]');
-            const isSold = soldElement ? (await soldElement.innerText()).toLowerCase().includes('sold') : false;
-
-            if (isSold) {
-              console.log(`✅ Item SOLD: ${item.name} (${item.price})`);
-              item.sold = true;
-            } else {
-              console.log(`Item still available: ${item.name}`);
-            }
+            trackedItems.push({ name, subtitle, price, link, sold: false });
+            console.log(`Tracking item: ${name} | ${link} | ${price}`);
           } catch (err) {
-            console.log('Error checking item:', err.message);
-          } finally {
-            await itemPage.close();
+            console.log('Skipped an item due to error:', err.message);
           }
         }
-      }, CHECK_INTERVAL);
 
-      // Stop checking after batch duration
-      setTimeout(async () => {
-        clearInterval(interval);
+        let keepChecking = true;
+
+        // Check sold status in intervals
+        const interval = setInterval(async () => {
+          if (!keepChecking) return;
+
+          for (const item of trackedItems) {
+            if (item.sold) continue;
+
+            const itemPage = await context.newPage();
+            try {
+              await itemPage.goto(item.link, { waitUntil: 'domcontentloaded', timeout: 15000 });
+              await itemPage.waitForTimeout(2000);
+
+              const soldElement = await itemPage.$('[data-testid="item-status--content"]');
+              const isSold = soldElement ? (await soldElement.innerText()).toLowerCase().includes('sold') : false;
+
+              if (isSold) {
+                console.log(`✅ Item SOLD: ${item.name} | ${item.link} | ${item.price}`);
+                item.sold = true;
+              } else {
+                console.log(`Item still available: ${item.name}`);
+              }
+            } catch (err) {
+              if (keepChecking) console.log('Error checking item:', err.message);
+            } finally {
+              await itemPage.close();
+            }
+          }
+        }, CHECK_INTERVAL);
+
+        // Wait batch duration
+        await new Promise(resolve => setTimeout(resolve, BATCH_DURATION));
+
+        // Stop checking and restart new batch
         console.log('Batch duration ended. Closing browser...');
+        keepChecking = false;
+        clearInterval(interval);
         await browser.close();
-      }, BATCH_DURATION);
+        break; // break out of attempt loop to start new batch
 
-      break; // exit retry loop after successful fetch
-
-    } catch (err) {
-      console.log('Navigation or extraction error:', err.message);
-      attempt++;
-      await browser.close();
+      } catch (err) {
+        console.log('Navigation or extraction error:', err.message);
+        attempt++;
+        await browser.close();
+      }
     }
-  }
 
-  if (items.length < BATCH_SIZE) {
-    console.log('Failed to load enough items after multiple attempts. Exiting.');
+    if (items.length < BATCH_SIZE) {
+      console.log('Failed to load enough items after multiple attempts. Restarting main loop...');
+    }
   }
 })();
