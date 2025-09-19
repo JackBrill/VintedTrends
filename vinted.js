@@ -23,8 +23,8 @@ function askQuestion(query) {
   const context = await browser.newContext();
   const page = await context.newPage();
 
-  // Block images/styles/fonts for faster catalog load
-  await page.route('**/*', (route) => {
+  // Block unnecessary resources
+  await page.route('**/*', route => {
     const type = route.request().resourceType();
     if (['image', 'stylesheet', 'font'].includes(type)) route.abort();
     else route.continue();
@@ -35,27 +35,26 @@ function askQuestion(query) {
       let items = [];
       let retryCount = 0;
 
-      // Retry loop for slow-loading pages
+      // Retry loop
       while (items.length < BATCH_SIZE && retryCount < 5) {
         console.log(`Fetching a batch of ${BATCH_SIZE} newest items (attempt ${retryCount + 1})...`);
         await page.goto('https://www.vinted.co.uk/catalog?search_id=26450535328&page=1&order=newest_first', 
                         { waitUntil: 'domcontentloaded', timeout: 45000 });
-
-        // Scroll to load more if needed
         await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
         await page.waitForTimeout(2000);
 
-        items = await page.$$('div.homepage-blocks__item');
+        items = await page.$$('div[data-testid="grid-item"]');
+        console.log(`Loaded ${items.length} items`);
 
         if (items.length < BATCH_SIZE) {
-          console.log(`Loaded ${items.length} items, waiting for more...`);
+          console.log('Waiting for more items...');
           await new Promise(r => setTimeout(r, 3000));
         }
         retryCount++;
       }
 
       if (!items.length) {
-        console.log('No items found after retries. Waiting 10s before retrying...');
+        console.log('No items found after retries. Waiting 10s...');
         await new Promise(r => setTimeout(r, 10000));
         continue;
       }
@@ -64,17 +63,15 @@ function askQuestion(query) {
 
       for (const item of items.slice(0, BATCH_SIZE)) {
         try {
-          const name = await item.$eval('a', el => el.getAttribute('title') || 'No Title');
-          const link = await item.$eval('a', el => el.href);
-          const image = await item.$eval('img', el => el.src);
-          let price = 'Unknown';
-          try { price = await item.$eval('span', el => el.innerText.trim()); } catch {}
-          let subtitle = '';
-          try { subtitle = await item.$eval('p', el => el.innerText.trim()); } catch {}
+          const name = await item.$eval('p[data-testid$="--description-title"]', el => el.innerText.trim());
+          const subtitle = await item.$eval('p[data-testid$="--description-subtitle"]', el => el.innerText.trim());
+          const price = await item.$eval('p[data-testid$="--price-text"]', el => el.innerText.trim());
+          const link = await item.$eval('a[data-testid$="--overlay-link"]', el => el.href);
+          const image = await item.$eval('img[data-testid$="--image--img"]', el => el.src);
 
           trackedItems.push({ name, subtitle, price, link, image, sold: false });
 
-          // Send initial Discord embed
+          // Send Discord embed
           await fetch(WEBHOOK_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -92,7 +89,7 @@ function askQuestion(query) {
 
           console.log('Tracking item:', name);
         } catch (err) {
-          console.error('Skipped an item due to error:', err.message);
+          console.error('Skipped item due to error:', err.message);
         }
       }
 
@@ -103,7 +100,7 @@ function askQuestion(query) {
           if (item.sold) return;
 
           const itemPage = await context.newPage();
-          await itemPage.route('**/*', (route) => {
+          await itemPage.route('**/*', route => {
             const type = route.request().resourceType();
             if (['image', 'stylesheet', 'font'].includes(type)) route.abort();
             else route.continue();
@@ -111,7 +108,6 @@ function askQuestion(query) {
 
           try {
             await itemPage.goto(item.link, { waitUntil: 'domcontentloaded', timeout: 15000 });
-
             const soldElement = await itemPage.$('[data-testid="item-status--content"]');
             const isSold = soldElement ? (await soldElement.innerText()).toLowerCase().includes('sold') : false;
 
