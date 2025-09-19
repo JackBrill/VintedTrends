@@ -4,7 +4,7 @@ import fetch from 'node-fetch';
 
 const WEBHOOK_URL = 'https://discord.com/api/webhooks/1418689032728219678/sIkXJ-SgQYBzZX2J3p6jOwMwzdS-atWzpJfOm8_N5AdHDdF3RMgC-t1UhvfWv49WmOUo';
 const CHECK_INTERVAL = 30 * 1000; // 30 seconds
-const MAX_ITEMS = 5; // track 5 items
+const MAX_ITEMS = 15; // track 5 items
 
 (async () => {
   const browser = await chromium.launch({ headless: true });
