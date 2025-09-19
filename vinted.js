@@ -1,8 +1,9 @@
 // vinted.js
 import { chromium } from 'playwright';
 import readline from 'readline/promises';
+import process from 'process';
 
-// High-quality proxies
+// High-quality proxies list
 const PROXIES = [
   '208.66.76.70:5994:mtqikwov:autmrqhdcnfn',
   '72.1.153.25:5417:mtqikwov:autmrqhdcnfn',
@@ -26,43 +27,37 @@ const PROXIES = [
   '154.194.26.109:6350:mtqikwov:autmrqhdcnfn'
 ];
 
-// Get random proxy
+// Helper to get a random proxy
 function getRandomProxy() {
   const proxyStr = PROXIES[Math.floor(Math.random() * PROXIES.length)];
   const [host, port, user, pass] = proxyStr.split(':');
   return { host, port, user, pass };
 }
 
-// Main async function
-(async () => {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+// Prompt user for settings
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+const NUM_ITEMS = parseInt(await rl.question('How many items to track? '), 10);
+const CHECK_INTERVAL = parseInt(await rl.question('How often to check each item (seconds)? '), 10) * 1000;
+const BATCH_DURATION = parseInt(await rl.question('How long before switching to new items (seconds)? '), 10) * 1000;
+rl.close();
 
-  const BATCH_SIZE = parseInt(await rl.question('How many items to track? '), 10);
-  const CHECK_INTERVAL = parseInt(await rl.question('How often to check each item (seconds)? '), 10) * 1000;
-  const BATCH_DURATION = parseInt(await rl.question('When to swap to new items (minutes)? '), 10) * 60 * 1000;
-
-  rl.close();
-
+async function fetchAndTrackItems() {
   let attempt = 1;
-  let items = [];
 
-  while (items.length < BATCH_SIZE && attempt <= 5) {
+  while (true) {
     const proxy = getRandomProxy();
     console.log(`=== Attempt ${attempt} ===`);
     console.log(`Using proxy: ${proxy.host}:${proxy.port}`);
 
     const browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({
-      proxy: {
-        server: `http://${proxy.host}:${proxy.port}`,
-        username: proxy.user,
-        password: proxy.pass
-      },
+      proxy: { server: `http://${proxy.host}:${proxy.port}`, username: proxy.user, password: proxy.pass },
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36',
       viewport: { width: 1280, height: 800 }
     });
 
     const page = await context.newPage();
+    let items = [];
 
     try {
       console.log('Navigating to Vinted catalog...');
@@ -70,40 +65,37 @@ function getRandomProxy() {
         'https://www.vinted.co.uk/catalog?search_id=26450535328&page=1&order=newest_first',
         { waitUntil: 'domcontentloaded', timeout: 30000 }
       );
-
       console.log(`Response status: ${response.status()}`);
       await page.waitForTimeout(2000);
 
       items = await page.$$('div[data-testid="grid-item"]');
       console.log(`Found ${items.length} items on the page.`);
 
-      if (items.length < BATCH_SIZE) {
-        console.log('Not enough items, retrying...');
+      if (items.length === 0) {
+        console.log('No items found, retrying...');
         attempt++;
         await browser.close();
         continue;
       }
 
-      console.log(`Tracking first ${BATCH_SIZE} items...`);
-
       const trackedItems = [];
-      for (const item of items.slice(0, BATCH_SIZE)) {
+      for (const item of items.slice(0, NUM_ITEMS)) {
         try {
           const name = await item.$eval('[data-testid$="--description-title"]', el => el.innerText.trim());
           const subtitle = await item.$eval('[data-testid$="--description-subtitle"]', el => el.innerText.trim());
           const price = await item.$eval('[data-testid$="--price-text"]', el => el.innerText.trim());
           const link = await item.$eval('a[data-testid$="--overlay-link"]', el => el.href);
-          const image = await item.$eval('img[data-testid$="--image--img"]', el => el.src);
-
-          trackedItems.push({ name, subtitle, price, link, image, sold: false });
-          console.log(`Tracking item: ${name} | Link: ${link}`);
+          trackedItems.push({ name, subtitle, price, link, sold: false });
+          console.log(`Tracking item: ${name} | ${link} | ${price}`);
         } catch (err) {
           console.log('Skipped an item due to error:', err.message);
         }
       }
 
-      // Interval to check each item
+      let keepChecking = true;
       const interval = setInterval(async () => {
+        if (!keepChecking) return;
+
         for (const item of trackedItems) {
           if (item.sold) continue;
 
@@ -122,30 +114,27 @@ function getRandomProxy() {
               console.log(`Item still available: ${item.name} | ${item.link} | ${item.price}`);
             }
           } catch (err) {
-            console.log('Error checking item:', err.message);
+            if (keepChecking) console.log('Error checking item:', err.message);
           } finally {
             await itemPage.close();
           }
         }
       }, CHECK_INTERVAL);
 
-      // Stop interval and close browser after batch duration
-      setTimeout(async () => {
-        console.log('Batch duration ended. Stopping item checks...');
-        clearInterval(interval);
-        console.log('Interval cleared. Closing browser...');
-        await browser.close();
-      }, BATCH_DURATION);
+      // Automatically swap to new items after batch duration
+      await new Promise(resolve => setTimeout(resolve, BATCH_DURATION));
+      console.log('Batch duration ended. Switching to new items...');
+      keepChecking = false;
+      clearInterval(interval);
+      await browser.close();
 
-      break; // exit retry loop after successful fetch
     } catch (err) {
       console.log('Navigation or extraction error:', err.message);
-      attempt++;
       await browser.close();
     }
-  }
 
-  if (items.length < BATCH_SIZE) {
-    console.log('Failed to load enough items after multiple attempts. Exiting.');
+    attempt = 1; // reset attempt for next batch
   }
-})();
+}
+
+fetchAndTrackItems().catch(err => console.error(err));
