@@ -38,12 +38,11 @@ function getRandomProxy() {
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const NUM_ITEMS = parseInt(await rl.question('How many items to track? '), 10);
 const CHECK_INTERVAL = parseInt(await rl.question('How often to check each item (seconds)? '), 10) * 1000;
-const BATCH_DURATION = parseInt(await rl.question('How long before switching to new items (seconds)? '), 10) * 1000;
+const BATCH_DURATION = parseInt(await rl.question('How long before switching to new items (minutes)? '), 10) * 60 * 1000;
 rl.close();
 
-// Track seen items and current catalog page
+// Track previously seen items to avoid duplicates
 const seenItemIds = new Set();
-let catalogPage = 1;
 
 async function fetchAndTrackItems() {
   let attempt = 1;
@@ -64,9 +63,9 @@ async function fetchAndTrackItems() {
     let items = [];
 
     try {
-      console.log(`Navigating to Vinted catalog, page ${catalogPage}...`);
+      console.log('Navigating to Vinted catalog...');
       const response = await page.goto(
-        `https://www.vinted.co.uk/catalog?search_id=26450535328&page=${catalogPage}&order=newest_first`,
+        'https://www.vinted.co.uk/catalog?search_id=26450535328&page=1&order=newest_first',
         { waitUntil: 'domcontentloaded', timeout: 30000 }
       );
       console.log(`Response status: ${response.status()}`);
@@ -76,38 +75,34 @@ async function fetchAndTrackItems() {
       console.log(`Found ${items.length} items on the page.`);
 
       if (items.length === 0) {
-        console.log('No items found, retrying next page...');
-        catalogPage++;
+        console.log('No items found, retrying...');
         attempt++;
         await browser.close();
         continue;
       }
 
-      const trackedItems = [];
+      // Filter new items and limit to NUM_ITEMS
+      const newItems = [];
       for (const item of items) {
-        try {
-          const id = await item.getAttribute('data-id');
-          if (seenItemIds.has(id)) continue; // skip duplicates
+        const id = await item.getAttribute('data-id');
+        if (!seenItemIds.has(id)) {
           seenItemIds.add(id);
-
-          const name = await item.$eval('[data-testid$="--description-title"]', el => el.innerText.trim());
-          const price = await item.$eval('[data-testid$="--price-text"]', el => el.innerText.trim());
-          const link = await item.$eval('a[data-testid$="--overlay-link"]', el => el.href);
-
-          trackedItems.push({ id, name, price, link, sold: false });
-          console.log(`Tracking item: ${name} | ${link} | ${price}`);
-
-          if (trackedItems.length >= NUM_ITEMS) break; // limit items per batch
-        } catch (err) {
-          console.log('Skipped an item due to error:', err.message);
+          newItems.push(item);
         }
       }
 
-      if (trackedItems.length === 0) {
-        console.log('No new items to track, moving to next page...');
-        catalogPage++;
-        await browser.close();
-        continue;
+      const trackedItems = [];
+      for (const item of newItems.slice(0, NUM_ITEMS)) {
+        try {
+          const name = await item.$eval('[data-testid$="--description-title"]', el => el.innerText.trim());
+          const price = await item.$eval('[data-testid$="--price-text"]', el => el.innerText.trim());
+          const link = await item.$eval('a[data-testid$="--overlay-link"]', el => el.href);
+          const id = await item.getAttribute('data-id');
+          trackedItems.push({ id, name, price, link, sold: false });
+          console.log(`Tracking item: ${name} | ${link} | ${price}`);
+        } catch (err) {
+          console.log('Skipped an item due to error:', err.message);
+        }
       }
 
       let keepChecking = true;
@@ -116,6 +111,7 @@ async function fetchAndTrackItems() {
 
         for (const item of trackedItems) {
           if (item.sold) continue;
+
           const itemPage = await context.newPage();
           try {
             await itemPage.goto(item.link, { waitUntil: 'domcontentloaded', timeout: 15000 });
@@ -138,21 +134,19 @@ async function fetchAndTrackItems() {
         }
       }, CHECK_INTERVAL);
 
-      // Wait for batch duration before switching
+      // Automatically swap to new items after batch duration
       await new Promise(resolve => setTimeout(resolve, BATCH_DURATION));
       console.log('Batch duration ended. Switching to new items...');
       keepChecking = false;
       clearInterval(interval);
       await browser.close();
 
-      catalogPage++; // move to next page for next batch
-      attempt = 1; // reset attempt
-
     } catch (err) {
       console.log('Navigation or extraction error:', err.message);
       await browser.close();
-      attempt++;
     }
+
+    attempt = 1; // reset attempt for next batch
   }
 }
 
