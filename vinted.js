@@ -29,7 +29,7 @@ const PROXIES = [
 ];
 
 // Discord webhook (replace with your own)
-const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/xxx/yyy";
+const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1418733868520964286/McnY3GDm_4xPLr8eo-e_TZM3NUQXz8-LkHde-uWpc1AGpCqt-3ykkr5jz_TaxiMWlGte";
 
 // Settings
 const BATCH_SIZE = 10; // number of items to track
