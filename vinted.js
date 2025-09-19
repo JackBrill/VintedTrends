@@ -1,4 +1,3 @@
-// vinted.js
 import { chromium } from 'playwright';
 
 (async () => {
@@ -7,26 +6,21 @@ import { chromium } from 'playwright';
   const page = await context.newPage();
 
   try {
-    // Go to Vinted UK home page
     await page.goto('https://www.vinted.co.uk', { waitUntil: 'domcontentloaded' });
 
-    // Handle cookie/consent banner if present
-    const consentButton = page.locator('button:has-text("Accept all cookies")');
-    if (await consentButton.count() > 0) {
-      await consentButton.click();
+    // Wait for first feed item (10s timeout)
+    const firstItem = await page.waitForSelector('div.feed-grid__item', { timeout: 10000 });
+
+    if (firstItem) {
+      const name = await firstItem.$eval('h3', el => el.innerText.trim()).catch(() => 'N/A');
+      const price = await firstItem.$eval('span[data-testid="price"]', el => el.innerText.trim()).catch(() => 'N/A');
+
+      console.log('First item:');
+      console.log('Name:', name);
+      console.log('Price:', price);
+    } else {
+      console.log('No items found on the home page.');
     }
-
-    // Wait for the main feed to load (10-second timeout)
-    await page.waitForSelector('article > div > a', { timeout: 10000 });
-
-    // Grab the first item
-    const firstItem = page.locator('article > div > a').first();
-    const name = await firstItem.locator('h3').textContent();
-    const price = await firstItem.locator('div[data-testid="price"]').textContent();
-
-    console.log('First item:');
-    console.log('Name:', name?.trim() || 'N/A');
-    console.log('Price:', price?.trim() || 'N/A');
 
   } catch (err) {
     console.error('Error:', err);
