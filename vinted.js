@@ -63,47 +63,48 @@ function askQuestion(query) {
       const batchStart = Date.now();
 
       while (Date.now() - batchStart < BATCH_DURATION) {
-        // ✅ Parallel sold status checks
-        await Promise.all(trackedItems.map(async (item) => {
-          if (item.sold) return;
+  // ✅ Parallel sold status checks with faster page load handling
+  await Promise.all(trackedItems.map(async (item) => {
+    if (item.sold) return;
 
-          const itemPage = await context.newPage();
-          try {
-            await itemPage.goto(item.link, { waitUntil: 'networkidle' });
+    const itemPage = await context.newPage();
+    try {
+      await itemPage.goto(item.link, { waitUntil: 'domcontentloaded', timeout: 15000 });
 
-            const soldElement = await itemPage.$('[data-testid="item-status--content"]');
-            const isSold = soldElement ? (await soldElement.innerText()).toLowerCase().includes('sold') : false;
+      const soldElement = await itemPage.$('[data-testid="item-status--content"]');
+      const isSold = soldElement ? (await soldElement.innerText()).toLowerCase().includes('sold') : false;
 
-            if (isSold) {
-              console.log(`${new Date().toLocaleTimeString()}: Item SOLD: ${item.name}`);
-              item.sold = true;
+      if (isSold) {
+        console.log(`${new Date().toLocaleTimeString()}: Item SOLD: ${item.name}`);
+        item.sold = true;
 
-              await fetch(WEBHOOK_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  embeds: [{
-                    title: item.name,
-                    url: item.link,
-                    description: `${item.subtitle}\nPrice: **${item.price}**\nStatus: SOLD`,
-                    color: 0xe74c3c,
-                    image: { url: item.image },
-                    footer: { text: 'Vinted.co.uk' }
-                  }]
-                })
-              });
-            } else {
-              console.log(`${new Date().toLocaleTimeString()}: Item still available: ${item.name}`);
-            }
-          } catch (err) {
-            console.error('Error checking item:', item.name, err);
-          } finally {
-            await itemPage.close();
-          }
-        }));
-
-        await new Promise(r => setTimeout(r, CHECK_INTERVAL));
+        await fetch(WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            embeds: [{
+              title: item.name,
+              url: item.link,
+              description: `${item.subtitle}\nPrice: **${item.price}**\nStatus: SOLD`,
+              color: 0xe74c3c,
+              image: { url: item.image },
+              footer: { text: 'Vinted.co.uk' }
+            }]
+          })
+        });
+      } else {
+        console.log(`${new Date().toLocaleTimeString()}: Item still available: ${item.name}`);
       }
+    } catch (err) {
+      console.error(`Skipped item (timeout or error): ${item.name}`, err.message);
+    } finally {
+      await itemPage.close();
+    }
+  }));
+
+  await new Promise(r => setTimeout(r, CHECK_INTERVAL));
+}
+
 
       console.log('Batch duration ended. Moving to next batch...');
     }
