@@ -33,9 +33,9 @@ const DISCORD_WEBHOOK_URL =
   "https://discord.com/api/webhooks/1418733868520964286/McnY3GDm_4xPLr8eo-e_TZM3NUQXz8-LkHde-uWpc1AGpCqt-3ykkr5jz_TaxiMWlGte";
 
 // Settings
-const BATCH_SIZE = 10; // number of items to track
-const CHECK_INTERVAL = 10 * 1000; // 10 seconds
-const BATCH_DURATION = 1 * 60 * 1000; // 5 minutes
+const BATCH_SIZE = 30; // number of items to track
+const CHECK_INTERVAL = 30 * 1000; // 10 seconds
+const BATCH_DURATION = 10 * 60 * 1000; // 5 minutes
 
 // === HELPERS ===
 
