@@ -1,37 +1,36 @@
-import { chromium } from 'playwright';
+// vinted.js
+import { chromium } from 'playwright-extra';
+import StealthPlugin from 'playwright-extra-plugin-stealth';
+
+chromium.use(StealthPlugin());
 
 (async () => {
-  try {
-    console.log("Launching browser...");
-    const browser = await chromium.launch({ headless: false }); // non-headless helps see what's happening
-    const context = await browser.newContext();
-    const page = await context.newPage();
+  // Launch browser
+  const browser = await chromium.launch({ headless: false }); // set headless:true if you want no GUI
+  const context = await browser.newContext();
+  const page = await context.newPage();
 
-    console.log("Navigating to Vinted UK...");
+  try {
+    // Navigate to Vinted UK
     await page.goto('https://www.vinted.co.uk/', { waitUntil: 'networkidle' });
 
-    console.log("Waiting for items to load...");
-    await page.waitForSelector('.feed-grid__item', { timeout: 15000 }) // 15s timeout
-      .catch(() => console.log("Items container not found."));
+    // Wait for the first item to load
+    await page.waitForSelector('.feed-grid__item', { timeout: 15000 });
 
-    // Try to grab the first item
+    // Grab the first item
     const firstItem = await page.$('.feed-grid__item');
-    if (!firstItem) {
-      console.log("No items found on the homepage.");
-      await browser.close();
-      return;
-    }
 
-    // Grab name and price
-    const name = await firstItem.$eval('.feed-item__title', el => el.textContent.trim())
-      .catch(() => "Name not found");
-    const price = await firstItem.$eval('.feed-item__price', el => el.textContent.trim())
-      .catch(() => "Price not found");
+    // Extract name and price
+    const name = await firstItem.$eval('.feed-grid__item-title', el => el.innerText);
+    const price = await firstItem.$eval('.feed-grid__item-price', el => el.innerText);
 
-    console.log('First item:', { name, price });
+    console.log('First item:');
+    console.log('Name:', name);
+    console.log('Price:', price);
 
-    await browser.close();
   } catch (err) {
-    console.error("Error caught:", err);
+    console.error('Error scraping Vinted:', err);
+  } finally {
+    await browser.close();
   }
 })();
