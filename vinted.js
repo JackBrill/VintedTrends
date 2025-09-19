@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 
-// Your Discord webhook URL
+// Discord webhook URL
 const WEBHOOK_URL = 'https://discord.com/api/webhooks/1418689032728219678/sIkXJ-SgQYBzZX2J3p6jOwMwzdS-atWzpJfOm8_N5AdHDdF3RMgC-t1UhvfWv49WmOUo';
 
 (async () => {
@@ -18,19 +18,29 @@ const WEBHOOK_URL = 'https://discord.com/api/webhooks/1418689032728219678/sIkXJ-
       const name = await firstItem.$eval('[data-testid="feed-item--description-title"]', el => el.innerText.trim());
       const price = await firstItem.$eval('[data-testid="feed-item--price-text"]', el => el.innerText.trim());
       const link = await firstItem.$eval('a[data-testid="feed-item--overlay-link"]', el => el.href);
+      const image = await firstItem.$eval('img[data-testid="feed-item--image--img"]', el => el.src);
 
-      console.log('First item:', { name, price, link });
+      console.log('First item:', { name, price, link, image });
 
-      // Send to Discord webhook
+      // Send embed to Discord webhook
       await fetch(WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          content: `New Vinted listing:\n**${name}**\nPrice: ${price}\nLink: ${link}`
+          embeds: [
+            {
+              title: name,
+              url: link,
+              description: `Price: **${price}**`,
+              color: 0x1abc9c,
+              image: { url: image },
+              footer: { text: 'Vinted.co.uk' }
+            }
+          ]
         })
       });
 
-      console.log('Sent to Discord webhook!');
+      console.log('Sent to Discord webhook as an embed!');
     } else {
       console.log('No items found.');
     }
