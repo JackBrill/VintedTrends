@@ -1,11 +1,42 @@
 // vinted.js
 import { chromium } from 'playwright';
 import fetch from 'node-fetch'; // make sure node-fetch is installed
-const WEBHOOK_URL = 'https://discord.com/api/webhooks/1418689032728219678/sIkXJ-SgQYBzZX2J3p6jOwMwzdS-atWzpJfOm8_N5AdHDdF3RMgC-t1UhvfWv49WmOUo';
+const WEBHOOK_URL = 'https://discord.com/api/webhooks/1418689032728219678/sIkXJ-SgQYzZX2J3p6jOwMwzdS-atWzpJfOm8_N5AdHDdF3RMgC-t1UhvfWv49WmOUo';
+
+// Webshare proxies
+const PROXIES = [
+  '142.111.48.253:7030:mtqikwov:autmrqhdcnfn',
+  '198.23.239.134:6540:mtqikwov:autmrqhdcnfn',
+  '45.38.107.97:6014:mtqikwov:autmrqhdcnfn',
+  '107.172.163.27:6543:mtqikwov:autmrqhdcnfn',
+  '64.137.96.74:6641:mtqikwov:autmrqhdcnfn',
+  '154.203.43.247:5536:mtqikwov:autmrqhdcnfn',
+  '84.247.60.125:6095:mtqikwov:autmrqhdcnfn',
+  '216.10.27.159:6837:mtqikwov:autmrqhdcnfn',
+  '142.111.67.146:5611:mtqikwov:autmrqhdcnfn',
+  '142.147.128.93:6593:mtqikwov:autmrqhdcnfn'
+];
+
+// Pick a random proxy and return credentials
+function getRandomProxy() {
+  const proxy = PROXIES[Math.floor(Math.random() * PROXIES.length)];
+  const [ip, port, username, password] = proxy.split(':');
+  return { ip, port, username, password };
+}
 
 (async () => {
   const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext();
+
+  // Pick a random proxy for the context
+  const { ip, port, username, password } = getRandomProxy();
+  const context = await browser.newContext({
+    proxy: {
+      server: `http://${ip}:${port}`,
+      username,
+      password
+    }
+  });
+
   const page = await context.newPage();
 
   try {
@@ -45,11 +76,21 @@ const WEBHOOK_URL = 'https://discord.com/api/webhooks/1418689032728219678/sIkXJ-
     // Function to check if item is sold
     const checkSoldStatus = async () => {
       try {
-        await page.goto(link, { waitUntil: 'networkidle' });
-        // wait a moment for the sold status to appear
-        await page.waitForTimeout(2000);
+        // Rotate proxy for each sold check
+        const { ip, port, username, password } = getRandomProxy();
+        const itemContext = await browser.newContext({
+          proxy: {
+            server: `http://${ip}:${port}`,
+            username,
+            password
+          }
+        });
+        const itemPage = await itemContext.newPage();
 
-        const soldElement = await page.$('[data-testid="item-status--content"]');
+        await itemPage.goto(link, { waitUntil: 'networkidle' });
+        await itemPage.waitForTimeout(2000);
+
+        const soldElement = await itemPage.$('[data-testid="item-status--content"]');
         if (soldElement) {
           const statusText = await soldElement.innerText();
           if (statusText.toLowerCase().includes('sold')) {
@@ -69,7 +110,7 @@ const WEBHOOK_URL = 'https://discord.com/api/webhooks/1418689032728219678/sIkXJ-
               })
             });
             console.log('Sold notification sent! Exiting.');
-            clearInterval(interval); // stop checking
+            clearInterval(interval);
             await browser.close();
           } else {
             console.log('Item is still available.');
@@ -77,6 +118,10 @@ const WEBHOOK_URL = 'https://discord.com/api/webhooks/1418689032728219678/sIkXJ-
         } else {
           console.log('Sold status element not found, item still available.');
         }
+
+        await itemPage.close();
+        await itemContext.close();
+
       } catch (err) {
         console.error('Error checking sold status:', err);
       }
