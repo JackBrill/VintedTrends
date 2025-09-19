@@ -16,8 +16,8 @@ import { chromium } from 'playwright';
       await consentButton.click();
     }
 
-    // Wait for the main feed to load
-    await page.waitForSelector('article > div > a', { timeout: 30000 });
+    // Wait for the main feed to load (10-second timeout)
+    await page.waitForSelector('article > div > a', { timeout: 10000 });
 
     // Grab the first item
     const firstItem = page.locator('article > div > a').first();
