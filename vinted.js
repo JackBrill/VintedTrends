@@ -1,26 +1,45 @@
 import { chromium } from 'playwright';
 import fetch from 'node-fetch';
+import readline from 'readline';
 
 const WEBHOOK_URL = 'https://discord.com/api/webhooks/1418689032728219678/sIkXJ-SgQYBzZX2J3p6jOwMwzdS-atWzpJfOm8_N5AdHDdF3RMgC-t1UhvfWv49WmOUo';
 const CHECK_INTERVAL = 30 * 1000; // 30 seconds
-const BATCH_SIZE = 15;
 const BATCH_DURATION = 5 * 60 * 1000; // 5 minutes
 
+// Function to ask user for number of items
+function askQuestion(query) {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  return new Promise(resolve => rl.question(query, ans => {
+    rl.close();
+    resolve(ans);
+  }));
+}
+
 (async () => {
+  const numItemsInput = await askQuestion('How many items do you want to track? ');
+  const BATCH_SIZE = parseInt(numItemsInput, 10);
+  if (isNaN(BATCH_SIZE) || BATCH_SIZE <= 0) {
+    console.log('Invalid number. Exiting.');
+    process.exit(1);
+  }
+
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext();
   const page = await context.newPage();
 
   try {
-    while (true) { // Loop batches indefinitely
-      console.log('Fetching new batch of items...');
+    while (true) {
+      console.log(`Fetching a batch of ${BATCH_SIZE} newest items...`);
       await page.goto('https://www.vinted.co.uk/catalog?search_id=26450535328&page=1&order=newest_first', { waitUntil: 'networkidle' });
       await page.waitForSelector('div[data-testid="grid-item"]', { timeout: 20000 });
 
       const items = await page.$$('div[data-testid="grid-item"]');
       const trackedItems = [];
 
-      // Grab the first BATCH_SIZE items
       for (const item of items.slice(0, BATCH_SIZE)) {
         const name = await item.$eval('[data-testid$="--description-title"]', el => el.innerText.trim());
         const subtitle = await item.$eval('[data-testid$="--description-subtitle"]', el => el.innerText.trim());
@@ -30,7 +49,6 @@ const BATCH_DURATION = 5 * 60 * 1000; // 5 minutes
 
         trackedItems.push({ name, subtitle, price, link, image, sold: false });
 
-        // Send initial Discord notification
         await fetch(WEBHOOK_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -49,7 +67,6 @@ const BATCH_DURATION = 5 * 60 * 1000; // 5 minutes
         console.log('Tracking item:', name);
       }
 
-      // Track batch for BATCH_DURATION
       const batchStart = Date.now();
 
       while (Date.now() - batchStart < BATCH_DURATION) {
