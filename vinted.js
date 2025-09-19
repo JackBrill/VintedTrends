@@ -29,13 +29,12 @@ const PROXIES = [
 ];
 
 // Discord webhook (replace with your own)
-const DISCORD_WEBHOOK_URL =
-  "https://discord.com/api/webhooks/1418733868520964286/McnY3GDm_4xPLr8eo-e_TZM3NUQXz8-LkHde-uWpc1AGpCqt-3ykkr5jz_TaxiMWlGte";
+const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/xxx/yyy";
 
 // Settings
-const BATCH_SIZE = 30; // number of items to track
-const CHECK_INTERVAL = 30 * 1000; // 10 seconds
-const BATCH_DURATION = 10 * 60 * 1000; // 5 minutes
+const BATCH_SIZE = 10; // number of items to track
+const CHECK_INTERVAL = 10 * 1000; // 10 seconds
+const BATCH_DURATION = 5 * 60 * 1000; // 5 minutes
 
 // === HELPERS ===
 
@@ -47,20 +46,7 @@ function getRandomProxy() {
 }
 
 // Send Discord notification
-async function sendDiscordNotification(item) {
-  const embed = {
-    title: "🛑 Item SOLD",
-    color: 0xff0000,
-    fields: [
-      { name: "Name", value: item.name, inline: false },
-      { name: "Price", value: item.price, inline: true },
-      { name: "Started Tracking", value: item.startedAt.toISOString(), inline: true },
-      { name: "Sold At", value: item.soldAt.toISOString(), inline: true },
-      { name: "Link", value: item.link, inline: false },
-    ],
-    timestamp: new Date().toISOString(),
-  };
-
+async function sendDiscordNotification(embed) {
   try {
     await fetch(DISCORD_WEBHOOK_URL, {
       method: "POST",
@@ -154,6 +140,15 @@ async function sendDiscordNotification(item) {
           }
         }
 
+        // Send "Scan Starting" embed
+        const namesList = trackedItems.map((i) => i.name).join(", ");
+        await sendDiscordNotification({
+          title: "📡 Scan Starting",
+          description: namesList || "No items",
+          color: 0x3498db,
+          timestamp: new Date().toISOString(),
+        });
+
         let keepChecking = true;
         let isClosing = false;
 
@@ -187,7 +182,28 @@ async function sendDiscordNotification(item) {
                 item.sold = true;
                 item.soldAt = new Date();
                 console.log(`✅ Item SOLD: ${item.name} | ${item.link} | ${item.price}`);
-                await sendDiscordNotification(item);
+
+                // Send SOLD embed
+                await sendDiscordNotification({
+                  title: "🛑 Item SOLD",
+                  color: 0xff0000,
+                  fields: [
+                    { name: "Name", value: item.name, inline: false },
+                    { name: "Price", value: item.price, inline: true },
+                    {
+                      name: "Started Tracking",
+                      value: item.startedAt.toISOString(),
+                      inline: true,
+                    },
+                    {
+                      name: "Sold At",
+                      value: item.soldAt.toISOString(),
+                      inline: true,
+                    },
+                    { name: "Link", value: item.link, inline: false },
+                  ],
+                  timestamp: new Date().toISOString(),
+                });
               } else {
                 console.log(`Item still available: ${item.name}`);
               }
