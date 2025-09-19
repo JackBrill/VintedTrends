@@ -1,7 +1,5 @@
 // vinted.js
 import { chromium } from 'playwright';
-import readline from 'readline/promises';
-import process from 'process';
 
 // High-quality proxies list
 const PROXIES = [
@@ -34,33 +32,32 @@ function getRandomProxy() {
   return { host, port, user, pass };
 }
 
-// Prompt user for settings
-const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-const NUM_ITEMS = parseInt(await rl.question('How many items to track? '), 10);
-const CHECK_INTERVAL = parseInt(await rl.question('How often to check each item (seconds)? '), 10) * 1000;
-const BATCH_DURATION = parseInt(await rl.question('How long before switching to new items (minutes)? '), 10) * 60 * 1000;
-rl.close();
+// Main function
+(async () => {
+  const BATCH_SIZE = 10; // number of items to track
+  const CHECK_INTERVAL = 10 * 1000; // 10 seconds
+  const BATCH_DURATION = 5 * 60 * 1000; // 5 minutes
 
-// Track previously seen items to avoid duplicates
-const seenItemIds = new Set();
-
-async function fetchAndTrackItems() {
   let attempt = 1;
+  let items = [];
 
-  while (true) {
+  while (items.length < BATCH_SIZE && attempt <= 5) {
     const proxy = getRandomProxy();
     console.log(`=== Attempt ${attempt} ===`);
     console.log(`Using proxy: ${proxy.host}:${proxy.port}`);
 
     const browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({
-      proxy: { server: `http://${proxy.host}:${proxy.port}`, username: proxy.user, password: proxy.pass },
+      proxy: {
+        server: `http://${proxy.host}:${proxy.port}`,
+        username: proxy.user,
+        password: proxy.pass
+      },
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36',
       viewport: { width: 1280, height: 800 }
     });
 
     const page = await context.newPage();
-    let items = [];
 
     try {
       console.log('Navigating to Vinted catalog...');
@@ -68,87 +65,82 @@ async function fetchAndTrackItems() {
         'https://www.vinted.co.uk/catalog?search_id=26450535328&page=1&order=newest_first',
         { waitUntil: 'domcontentloaded', timeout: 30000 }
       );
+
       console.log(`Response status: ${response.status()}`);
-      await page.waitForTimeout(2000);
+      await page.waitForTimeout(2000); // wait a moment for page to stabilize
 
       items = await page.$$('div[data-testid="grid-item"]');
       console.log(`Found ${items.length} items on the page.`);
 
-      if (items.length === 0) {
-        console.log('No items found, retrying...');
+      if (items.length < BATCH_SIZE) {
+        console.log('Not enough items, retrying...');
         attempt++;
         await browser.close();
         continue;
       }
 
-      // Filter new items and limit to NUM_ITEMS
-      const newItems = [];
-      for (const item of items) {
-        const id = await item.getAttribute('data-id');
-        if (!seenItemIds.has(id)) {
-          seenItemIds.add(id);
-          newItems.push(item);
-        }
-      }
+      console.log(`Tracking first ${BATCH_SIZE} items...`);
 
       const trackedItems = [];
-      for (const item of newItems.slice(0, NUM_ITEMS)) {
+      for (const item of items.slice(0, BATCH_SIZE)) {
         try {
           const name = await item.$eval('[data-testid$="--description-title"]', el => el.innerText.trim());
+          const subtitle = await item.$eval('[data-testid$="--description-subtitle"]', el => el.innerText.trim());
           const price = await item.$eval('[data-testid$="--price-text"]', el => el.innerText.trim());
           const link = await item.$eval('a[data-testid$="--overlay-link"]', el => el.href);
-          const id = await item.getAttribute('data-id');
-          trackedItems.push({ id, name, price, link, sold: false });
-          console.log(`Tracking item: ${name} | ${link} | ${price}`);
+          const image = await item.$eval('img[data-testid$="--image--img"]', el => el.src);
+
+          trackedItems.push({ name, subtitle, price, link, image, sold: false });
+          console.log('Tracking item:', name);
         } catch (err) {
           console.log('Skipped an item due to error:', err.message);
         }
       }
 
-      let keepChecking = true;
-const interval = setInterval(async () => {
-  if (!keepChecking) return;
+      // Check sold status in intervals
+      const interval = setInterval(async () => {
+        for (const item of trackedItems) {
+          if (item.sold) continue;
 
-  for (const item of trackedItems) {
-    if (item.sold) continue;
+          const itemPage = await context.newPage();
+          try {
+            await itemPage.goto(item.link, { waitUntil: 'domcontentloaded', timeout: 15000 });
+            await itemPage.waitForTimeout(2000);
 
-    try {
-      const itemPage = await context.newPage();
-      await itemPage.goto(item.link, { waitUntil: 'domcontentloaded', timeout: 15000 });
-      await itemPage.waitForTimeout(2000);
+            const soldElement = await itemPage.$('[data-testid="item-status--content"]');
+            const isSold = soldElement ? (await soldElement.innerText()).toLowerCase().includes('sold') : false;
 
-      const soldElement = await itemPage.$('[data-testid="item-status--content"]');
-      const isSold = soldElement ? (await soldElement.innerText()).toLowerCase().includes('sold') : false;
+            if (isSold) {
+              console.log(`✅ Item SOLD: ${item.name} (${item.price})`);
+              item.sold = true;
+            } else {
+              console.log(`Item still available: ${item.name}`);
+            }
+          } catch (err) {
+            console.log('Error checking item:', err.message);
+          } finally {
+            await itemPage.close();
+          }
+        }
+      }, CHECK_INTERVAL);
 
-      if (isSold) {
-        console.log(`✅ Item SOLD: ${item.name} | ${item.link} | ${item.price}`);
-        item.sold = true;
-      } else {
-        console.log(`Item still available: ${item.name} | ${item.link} | ${item.price}`);
-      }
+      // Stop checking after batch duration
+      setTimeout(async () => {
+        clearInterval(interval);
+        console.log('Batch duration ended. Closing browser...');
+        await browser.close();
+      }, BATCH_DURATION);
 
-      await itemPage.close();
-    } catch (err) {
-      if (keepChecking) console.log('Error checking item:', err.message);
-    }
-  }
-}, CHECK_INTERVAL);
-
-
-      // Automatically swap to new items after batch duration
-      await new Promise(resolve => setTimeout(resolve, BATCH_DURATION));
-      console.log('Batch duration ended. Switching to new items...');
-      keepChecking = false;
-      clearInterval(interval);
-      await browser.close();
+      break; // exit retry loop after successful fetch
 
     } catch (err) {
       console.log('Navigation or extraction error:', err.message);
+      attempt++;
       await browser.close();
     }
-
-    attempt = 1; // reset attempt for next batch
   }
-}
 
-fetchAndTrackItems().catch(err => console.error(err));
+  if (items.length < BATCH_SIZE) {
+    console.log('Failed to load enough items after multiple attempts. Exiting.');
+  }
+})();
