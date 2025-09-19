@@ -1,12 +1,9 @@
 // vinted.js
 import { chromium } from 'playwright';
-import fetch from 'node-fetch';
 
-const WEBHOOK_URL = 'https://discord.com/api/webhooks/1418689032728219678/sIkXJ-SgQYBzZX2J3p6jOwMwzdS-atWzpJfOm8_N5AdHDdF3RMgC-t1UhvfWv49WmOUo';
 const CHECK_INTERVAL = 10000; // 10 seconds
 const BATCH_DURATION = 5 * 60 * 1000; // 5 minutes
 
-// List of proxies in format ip:port:username:password
 const PROXIES = [
   "142.111.48.253:7030:mtqikwov:autmrqhdcnfn",
   "198.23.239.134:6540:mtqikwov:autmrqhdcnfn",
@@ -28,126 +25,108 @@ function randomProxy() {
 
 (async () => {
   const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext();
-  const page = await context.newPage();
+  let context = await browser.newContext();
+  let page = await context.newPage();
 
-  try {
-    let retryCount = 0;
-    const BATCH_SIZE = 10; // Adjust as needed
+  const BATCH_SIZE = 10;
+  let retryCount = 0;
 
-    // Retry loop for loading items
-    while (retryCount < 5) {
-      console.log(`Fetching batch of ${BATCH_SIZE} newest items (attempt ${retryCount + 1})...`);
+  while (retryCount < 5) {
+    const proxy = randomProxy();
+    console.log(`\n=== Attempt ${retryCount + 1} ===`);
+    console.log(`Using proxy: ${proxy.server}:${proxy.port}`);
 
-      // Optional: rotate proxy for each retry
-      const proxy = randomProxy();
-      console.log(`Using proxy ${proxy.server}:${proxy.port}`);
-      await page.close();
-      const newContext = await browser.newContext({
+    try {
+      // Recreate context and page for each proxy
+      await page.close().catch(() => {});
+      await context.close().catch(() => {});
+      context = await browser.newContext({
         proxy: {
           server: `http://${proxy.server}:${proxy.port}`,
           username: proxy.username,
           password: proxy.password
         }
       });
-      const newPage = await newContext.newPage();
+      page = await context.newPage();
 
-      await newPage.goto('https://www.vinted.co.uk/catalog?search_id=26450535328&page=1&order=newest_first', { waitUntil: 'domcontentloaded', timeout: 45000 });
-      await newPage.waitForTimeout(2000);
+      console.log('Navigating to Vinted catalog...');
+      const response = await page.goto(
+        'https://www.vinted.co.uk/catalog?search_id=26450535328&page=1&order=newest_first',
+        { waitUntil: 'domcontentloaded', timeout: 30000 }
+      );
 
-      const items = await newPage.$$('div.feed-grid__item');
-      if (!items.length) {
-        console.log('No items found, retrying...');
+      console.log(`Response status: ${response?.status()}`);
+      console.log('Waiting 2 seconds for page to stabilize...');
+      await page.waitForTimeout(2000);
+
+      const items = await page.$$('div.feed-grid__item');
+      console.log(`Found ${items.length} items on the page.`);
+
+      if (items.length >= BATCH_SIZE) {
+        console.log('Sufficient items loaded.');
+        break;
+      } else {
+        console.log('Not enough items, retrying...');
         retryCount++;
-        continue;
+      }
+    } catch (err) {
+      console.error('Navigation error:', err.message);
+      retryCount++;
+    }
+  }
+
+  if (retryCount >= 5) {
+    console.error('Failed to load items after multiple retries. Exiting.');
+    await browser.close();
+    process.exit(1);
+  }
+
+  console.log('=== Successfully loaded items, proceeding with tracking ===');
+
+  // Grab first item as example
+  const firstItem = await page.$('div.feed-grid__item');
+  if (!firstItem) {
+    console.error('No first item found after page load. Exiting.');
+    await browser.close();
+    process.exit(1);
+  }
+
+  const name = await firstItem.$eval('[data-testid$="--description-title"]', el => el.innerText.trim());
+  const subtitle = await firstItem.$eval('[data-testid$="--description-subtitle"]', el => el.innerText.trim());
+  const price = await firstItem.$eval('[data-testid$="--price-text"]', el => el.innerText.trim());
+  const link = await firstItem.$eval('a[data-testid$="--overlay-link"]', el => el.href);
+  const image = await firstItem.$eval('img[data-testid$="--image--img"]', el => el.src);
+
+  console.log('First item loaded:', { name, subtitle, price, link, image });
+
+  const batchStart = Date.now();
+  const interval = setInterval(async () => {
+    console.log('Checking sold status...');
+    try {
+      const itemPage = await context.newPage();
+      await itemPage.goto(link, { waitUntil: 'domcontentloaded', timeout: 15000 });
+      await itemPage.waitForTimeout(1000);
+
+      const soldEl = await itemPage.$('[data-testid="item-status--content"]');
+      const isSold = soldEl ? (await soldEl.innerText()).toLowerCase().includes('sold') : false;
+
+      console.log(`Sold status: ${isSold ? 'SOLD' : 'Available'}`);
+
+      if (isSold) {
+        console.log(`💰 ITEM SOLD: ${name} | Price: ${price} | Link: ${link}`);
+        clearInterval(interval);
+        await browser.close();
       }
 
-      const trackedItems = [];
-      for (const item of items.slice(0, BATCH_SIZE)) {
-        try {
-          const name = await item.$eval('[data-testid$="--description-title"]', el => el.innerText.trim());
-          const subtitle = await item.$eval('[data-testid$="--description-subtitle"]', el => el.innerText.trim());
-          const price = await item.$eval('[data-testid$="--price-text"]', el => el.innerText.trim());
-          const link = await item.$eval('a[data-testid$="--overlay-link"]', el => el.href);
-          const image = await item.$eval('img[data-testid$="--image--img"]', el => el.src);
-
-          trackedItems.push({ name, subtitle, price, link, image, sold: false });
-
-          // Send to Discord
-          await fetch(WEBHOOK_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              embeds: [{
-                title: name,
-                url: link,
-                description: `${subtitle}\nPrice: **${price}**`,
-                color: 0x1abc9c,
-                image: { url: image },
-                footer: { text: 'Vinted.co.uk' }
-              }]
-            })
-          });
-
-          console.log('Tracking item:', name);
-        } catch (err) {
-          console.error('Skipped item due to error:', err.message);
-        }
-      }
-
-      // Sold check loop
-      const batchStart = Date.now();
-      const interval = setInterval(async () => {
-        for (const item of trackedItems) {
-          if (item.sold) continue;
-          try {
-            const itemPage = await context.newPage();
-            await itemPage.goto(item.link, { waitUntil: 'domcontentloaded', timeout: 15000 });
-            await itemPage.waitForTimeout(1000);
-
-            const soldEl = await itemPage.$('[data-testid="item-status--content"]');
-            const isSold = soldEl ? (await soldEl.innerText()).toLowerCase().includes('sold') : false;
-
-            if (isSold) {
-              console.log(`${new Date().toLocaleTimeString()}: SOLD -> ${item.name}`);
-              item.sold = true;
-
-              await fetch(WEBHOOK_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  embeds: [{
-                    title: item.name,
-                    url: item.link,
-                    description: `${item.subtitle}\nPrice: **${item.price}**\nStatus: SOLD`,
-                    color: 0xe74c3c,
-                    image: { url: item.image },
-                    footer: { text: 'Vinted.co.uk' }
-                  }]
-                })
-              });
-            } else {
-              console.log(`${new Date().toLocaleTimeString()}: Available -> ${item.name}`);
-            }
-
-            await itemPage.close();
-          } catch (err) {
-            console.error(`Error checking item ${item.name}:`, err.message);
-          }
-        }
-
-        if (Date.now() - batchStart > BATCH_DURATION) {
-          clearInterval(interval);
-          console.log('Batch finished. Moving to next batch...');
-        }
-      }, CHECK_INTERVAL);
-
-      break; // exit retry loop if items loaded
+      await itemPage.close();
+    } catch (err) {
+      console.error('Error checking sold status:', err.message);
     }
 
-  } catch (err) {
-    console.error('Fatal error:', err);
-  } finally {
-    // Keep browser open to allow sold checks; close manually if desired
-  }
+    if (Date.now() - batchStart > BATCH_DURATION) {
+      console.log('Batch duration finished. Exiting interval.');
+      clearInterval(interval);
+    }
+  }, CHECK_INTERVAL);
+
 })();
