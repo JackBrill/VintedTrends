@@ -106,33 +106,34 @@ async function fetchAndTrackItems() {
       }
 
       let keepChecking = true;
-      const interval = setInterval(async () => {
-        if (!keepChecking) return;
+const interval = setInterval(async () => {
+  if (!keepChecking) return;
 
-        for (const item of trackedItems) {
-          if (item.sold) continue;
+  for (const item of trackedItems) {
+    if (item.sold) continue;
 
-          const itemPage = await context.newPage();
-          try {
-            await itemPage.goto(item.link, { waitUntil: 'domcontentloaded', timeout: 15000 });
-            await itemPage.waitForTimeout(2000);
+    try {
+      const itemPage = await context.newPage();
+      await itemPage.goto(item.link, { waitUntil: 'domcontentloaded', timeout: 15000 });
+      await itemPage.waitForTimeout(2000);
 
-            const soldElement = await itemPage.$('[data-testid="item-status--content"]');
-            const isSold = soldElement ? (await soldElement.innerText()).toLowerCase().includes('sold') : false;
+      const soldElement = await itemPage.$('[data-testid="item-status--content"]');
+      const isSold = soldElement ? (await soldElement.innerText()).toLowerCase().includes('sold') : false;
 
-            if (isSold) {
-              console.log(`✅ Item SOLD: ${item.name} | ${item.link} | ${item.price}`);
-              item.sold = true;
-            } else {
-              console.log(`Item still available: ${item.name} | ${item.link} | ${item.price}`);
-            }
-          } catch (err) {
-            if (keepChecking) console.log('Error checking item:', err.message);
-          } finally {
-            await itemPage.close();
-          }
-        }
-      }, CHECK_INTERVAL);
+      if (isSold) {
+        console.log(`✅ Item SOLD: ${item.name} | ${item.link} | ${item.price}`);
+        item.sold = true;
+      } else {
+        console.log(`Item still available: ${item.name} | ${item.link} | ${item.price}`);
+      }
+
+      await itemPage.close();
+    } catch (err) {
+      if (keepChecking) console.log('Error checking item:', err.message);
+    }
+  }
+}, CHECK_INTERVAL);
+
 
       // Automatically swap to new items after batch duration
       await new Promise(resolve => setTimeout(resolve, BATCH_DURATION));
