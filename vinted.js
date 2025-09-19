@@ -1,25 +1,37 @@
 import { chromium } from 'playwright';
 
 (async () => {
-  // Launch browser
-  const browser = await chromium.launch({ headless: true }); // headless is fine for VPS
-  const context = await browser.newContext();
-  const page = await context.newPage();
+  try {
+    console.log("Launching browser...");
+    const browser = await chromium.launch({ headless: false }); // non-headless helps see what's happening
+    const context = await browser.newContext();
+    const page = await context.newPage();
 
-  // Go to Vinted UK homepage
-  await page.goto('https://www.vinted.co.uk/', { waitUntil: 'networkidle' });
+    console.log("Navigating to Vinted UK...");
+    await page.goto('https://www.vinted.co.uk/', { waitUntil: 'networkidle' });
 
-  // Wait for items to load
-  await page.waitForSelector('.feed-grid__item'); // container for items
+    console.log("Waiting for items to load...");
+    await page.waitForSelector('.feed-grid__item', { timeout: 15000 }) // 15s timeout
+      .catch(() => console.log("Items container not found."));
 
-  // Grab first item
-  const firstItem = await page.$('.feed-grid__item');
+    // Try to grab the first item
+    const firstItem = await page.$('.feed-grid__item');
+    if (!firstItem) {
+      console.log("No items found on the homepage.");
+      await browser.close();
+      return;
+    }
 
-  // Get name and price
-  const name = await firstItem.$eval('.feed-item__title', el => el.textContent.trim());
-  const price = await firstItem.$eval('.feed-item__price', el => el.textContent.trim());
+    // Grab name and price
+    const name = await firstItem.$eval('.feed-item__title', el => el.textContent.trim())
+      .catch(() => "Name not found");
+    const price = await firstItem.$eval('.feed-item__price', el => el.textContent.trim())
+      .catch(() => "Price not found");
 
-  console.log('First item:', { name, price });
+    console.log('First item:', { name, price });
 
-  await browser.close();
+    await browser.close();
+  } catch (err) {
+    console.error("Error caught:", err);
+  }
 })();
