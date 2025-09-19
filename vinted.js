@@ -32,52 +32,68 @@ function askQuestion(query) {
 
   try {
     while (true) {
-      console.log(`Fetching a batch of ${BATCH_SIZE} newest items...`);
-      await page.goto('https://www.vinted.co.uk/catalog?search_id=26450535328&page=1&order=newest_first', 
-                      { waitUntil: 'domcontentloaded', timeout: 45000 });
+      let items = [];
+      let retryCount = 0;
 
-      // Wait for new item cards
-      const items = await page.$$('div.homepage-blocks__item');
+      // Retry loop for slow-loading pages
+      while (items.length < BATCH_SIZE && retryCount < 5) {
+        console.log(`Fetching a batch of ${BATCH_SIZE} newest items (attempt ${retryCount + 1})...`);
+        await page.goto('https://www.vinted.co.uk/catalog?search_id=26450535328&page=1&order=newest_first', 
+                        { waitUntil: 'domcontentloaded', timeout: 45000 });
+
+        // Scroll to load more if needed
+        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+        await page.waitForTimeout(2000);
+
+        items = await page.$$('div.homepage-blocks__item');
+
+        if (items.length < BATCH_SIZE) {
+          console.log(`Loaded ${items.length} items, waiting for more...`);
+          await new Promise(r => setTimeout(r, 3000));
+        }
+        retryCount++;
+      }
+
       if (!items.length) {
-        console.log('No items found. Retrying...');
-        await new Promise(r => setTimeout(r, 5000));
+        console.log('No items found after retries. Waiting 10s before retrying...');
+        await new Promise(r => setTimeout(r, 10000));
         continue;
       }
 
       const trackedItems = [];
 
       for (const item of items.slice(0, BATCH_SIZE)) {
-        const name = await item.$eval('a', el => el.getAttribute('title') || 'No Title');
-        const link = await item.$eval('a', el => el.href);
-        const image = await item.$eval('img', el => el.src);
-        let price = 'Unknown';
         try {
-          price = await item.$eval('span', el => el.innerText.trim());
-        } catch {}
-        let subtitle = '';
-        try {
-          subtitle = await item.$eval('p', el => el.innerText.trim());
-        } catch {}
+          const name = await item.$eval('a', el => el.getAttribute('title') || 'No Title');
+          const link = await item.$eval('a', el => el.href);
+          const image = await item.$eval('img', el => el.src);
+          let price = 'Unknown';
+          try { price = await item.$eval('span', el => el.innerText.trim()); } catch {}
+          let subtitle = '';
+          try { subtitle = await item.$eval('p', el => el.innerText.trim()); } catch {}
 
-        trackedItems.push({ name, subtitle, price, link, image, sold: false });
+          trackedItems.push({ name, subtitle, price, link, image, sold: false });
 
-        // Send initial Discord embed
-        await fetch(WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            embeds: [{
-              title: name,
-              url: link,
-              description: `${subtitle}\nPrice: **${price}**`,
-              color: 0x1abc9c,
-              image: { url: image },
-              footer: { text: 'Vinted.co.uk' }
-            }]
-          })
-        });
+          // Send initial Discord embed
+          await fetch(WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              embeds: [{
+                title: name,
+                url: link,
+                description: `${subtitle}\nPrice: **${price}**`,
+                color: 0x1abc9c,
+                image: { url: image },
+                footer: { text: 'Vinted.co.uk' }
+              }]
+            })
+          });
 
-        console.log('Tracking item:', name);
+          console.log('Tracking item:', name);
+        } catch (err) {
+          console.error('Skipped an item due to error:', err.message);
+        }
       }
 
       const batchStart = Date.now();
@@ -87,8 +103,6 @@ function askQuestion(query) {
           if (item.sold) return;
 
           const itemPage = await context.newPage();
-
-          // Block images/styles/fonts for faster load
           await itemPage.route('**/*', (route) => {
             const type = route.request().resourceType();
             if (['image', 'stylesheet', 'font'].includes(type)) route.abort();
