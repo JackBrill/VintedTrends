@@ -28,9 +28,8 @@ function getSaleSpeed(item) {
 
 async function fetchSales() {
   try {
-    // This now fetches your specific sales.json file.
-    // In a real application, this would point to your API endpoint like '/api/sales'.
-    const res = await fetch("sales.json"); 
+    // CHANGE THIS LINE to use the API endpoint
+    const res = await fetch("/api/sales"); 
     const sales = await res.json();
 
     if (!sales || sales.length === 0) {
@@ -75,9 +74,8 @@ async function fetchSales() {
   }
 }
 
-// Run the function to display the sales data
+// Fetch data on initial load
 fetchSales();
 
-// Note: If this were a live dashboard, you would use setInterval to refresh.
-// For displaying a static JSON file, running it once is enough.
-// setInterval(fetchSales, 5000);
+// Refresh data every 5 seconds from the API
+setInterval(fetchSales, 5000);
