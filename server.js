@@ -1,21 +1,17 @@
 // server.js
 import express from "express";
-import path from "path";
-import { fileURLToPath } from "url";
-import { readSales } from "./salesData.js";
-import "./vinted.js"; // start bot
+import fs from "fs";
 
 const app = express();
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const PORT = 3000;
 
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static("public"));
 
-app.get("/sales", (req, res) => {
-  const sales = readSales();
+app.get("/api/sales", (req, res) => {
+  const sales = fs.existsSync("sales.json") ? JSON.parse(fs.readFileSync("sales.json", "utf8")) : [];
   res.json(sales);
 });
 
-app.listen(3000, () => {
-  console.log("✅ Dashboard running at http://localhost:3000");
+app.listen(PORT, () => {
+  console.log(`✅ Dashboard running at http://localhost:${PORT}`);
 });
