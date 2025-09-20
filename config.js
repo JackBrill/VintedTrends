@@ -25,4 +25,4 @@ export const PROXIES = [
 
 export const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1418908479229530223/8_Eg73-4nZL-QoaGKjXIJF0UOxEAMBiuZGRv5CS3VGd11gLvblOgaLNk1UIqmCbTyA6Z";
 
-export const VINTED_CATALOG_URL = "https://www.vinted.co.uk/catalog?search_id=26084673753&catalog[]=2050&order=newest_first&brand_ids[]=53&brand_ids[]=14&brand_ids[]=88&brand_ids[]=94&brand_ids[]=2319&brand_ids[]=362&brand_ids[]=120&brand_ids[]=304&brand_ids[]=7973&brand_ids[]=255&brand_ids[]=3036449&brand_ids[]=25383&brand_ids[]=73306&brand_ids[]=441&brand_ids[]=4273&brand_ids[]=99288&page=1&time=1758369027"
+export const VINTED_CATALOG_URL = "https://www.vinted.co.uk/catalog?search_id=26084673753&catalog[]=2050&order=newest_first"
