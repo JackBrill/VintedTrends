@@ -170,20 +170,25 @@ function getRandomProxy() {
                 item.sold = true;
                 item.soldAt = new Date();
 
-                // Fetch image safely
+                // Fetch image robustly
                 try {
-                  await itemPage.waitForSelector(
-                    'img[data-testid$="--image--img"]',
-                    { timeout: 3000 }
-                  );
-                  const imgEl = await itemPage.$(
-                    'img[data-testid$="--image--img"]'
-                  );
-                  item.image = imgEl ? await imgEl.getAttribute("src") : null;
-                  if (!item.image) {
-                    const firstImg = await itemPage.$("img");
-                    item.image = firstImg ? await firstImg.getAttribute("src") : null;
+                  const imgEl = await itemPage.$('img[data-testid^="item-photo-"]');
+                  if (imgEl) {
+                    item.image = await imgEl.getAttribute("src");
                   }
+
+                  if (!item.image) {
+                    const figureImg = await itemPage.$('figure.item-photo img');
+                    if (figureImg) item.image = await figureImg.getAttribute("src");
+                  }
+
+                  if (!item.image) {
+                    const anyImg = await itemPage.$("img");
+                    if (anyImg) item.image = await anyImg.getAttribute("src");
+                  }
+
+                  if (!item.image)
+                    console.log("⚠️ Could not fetch image for:", item.name);
                 } catch (err) {
                   console.log("Failed to fetch image:", err.message);
                   item.image = null;
