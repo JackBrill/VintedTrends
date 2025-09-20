@@ -1,37 +1,18 @@
 // salesData.js
 import fs from "fs";
+const FILE_PATH = "./salesData.json";
 
-const FILE = "sales.json";
-let salesData = [];
+let sales = [];
+if (fs.existsSync(FILE_PATH)) {
+  sales = JSON.parse(fs.readFileSync(FILE_PATH, "utf-8"));
+}
 
-// Load sales at startup
-export function loadSales() {
-  try {
-    if (fs.existsSync(FILE)) {
-      salesData = JSON.parse(fs.readFileSync(FILE, "utf-8"));
-      console.log(`📂 Loaded ${salesData.length} past sales from ${FILE}`);
-    }
-  } catch (err) {
-    console.error("⚠️ Failed to load sales:", err.message);
+export default {
+  add(item) {
+    sales.push(item);
+    fs.writeFileSync(FILE_PATH, JSON.stringify(sales, null, 2));
+  },
+  getAll() {
+    return sales;
   }
-}
-
-// Save sales to file
-export function saveSales() {
-  try {
-    fs.writeFileSync(FILE, JSON.stringify(salesData, null, 2));
-  } catch (err) {
-    console.error("⚠️ Failed to save sales:", err.message);
-  }
-}
-
-// Add a sale (auto-save)
-export function addSale(sale) {
-  salesData.push(sale);
-  saveSales();
-}
-
-// Access all sales
-export function getSales() {
-  return salesData;
-}
+};
