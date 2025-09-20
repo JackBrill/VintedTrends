@@ -1,192 +1,284 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>VinTrack - Vinted Sales Dashboard</title>
-    <meta name="description" content="A live dashboard tracking the latest sold items on Vinted." />
-    <meta name="author" content="VintedTrends Project" />
+// vinted.js
+import { chromium } from "playwright";
+import fs from "fs";
+import path from "path";
+import fetch from "node-fetch";
+import { PROXIES, DISCORD_WEBHOOK_URL, VINTED_CATALOG_URL } from "./config.js";
 
-    <!-- Google Font Import for the title -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&display=swap" rel="stylesheet">
+// Settings
+const BATCH_SIZE = 50; // number of items to track
+const CHECK_INTERVAL = 60 * 1000; // 60 seconds
+const BATCH_DURATION = 5 * 60 * 1000; // 5 minutes
 
-    <!-- Tailwind CSS via CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+// Path to sales data
+const SALES_FILE = path.join(process.cwd(), "sales.json");
 
-    <!-- Custom style to apply the new font -->
-    <style>
-      .font-title {
-        font-family: 'Cinzel Decorative', serif;
-      }
-    </style>
+// Load sales data
+function loadSales() {
+  if (!fs.existsSync(SALES_FILE)) return [];
+  try {
+    return JSON.parse(fs.readFileSync(SALES_FILE, "utf8"));
+  } catch {
+    return [];
+  }
+}
 
-    <!-- Tailwind Configuration Script -->
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              border: 'hsl(214.3 31.8% 91.4%)',
-              input: 'hsl(214.3 31.8% 91.4%)',
-              ring: 'hsl(222.2 84% 4.9%)',
-              background: 'hsl(0 0% 100%)',
-              foreground: 'hsl(222.2 84% 4.9%)',
-              primary: {
-                DEFAULT: 'hsl(188 100% 25.1%)',
-                foreground: 'hsl(0 0% 100%)',
-              },
-              secondary: {
-                DEFAULT: 'hsl(210 40% 96.1%)',
-                foreground: 'hsl(222.2 47.4% 11.2%)',
-              },
-              destructive: {
-                DEFAULT: 'hsl(0 84.2% 60.2%)',
-                foreground: 'hsl(210 40% 98%)',
-              },
-              muted: {
-                DEFAULT: 'hsl(210 40% 96.1%)',
-                foreground: 'hsl(215.4 16.3% 46.9%)',
-              },
-              accent: {
-                DEFAULT: 'hsl(210 40% 96.1%)',
-                foreground: 'hsl(222.2 47.4% 11.2%)',
-              },
-              card: {
-                DEFAULT: 'hsl(0 0% 100%)',
-                foreground: 'hsl(222.2 84% 4.9%)',
-              },
-              'vinted-teal-light': 'hsl(188 100% 35%)',
-            }
+// Save sales data
+function saveSales(data) {
+  fs.writeFileSync(SALES_FILE, JSON.stringify(data, null, 2));
+}
+
+/**
+ * Converts a color name into a hex code.
+ * @param {string} colorName - The color name from Vinted.
+ * @returns {string|null} The corresponding hex code or null if not found.
+ */
+function mapColorToHex(colorName) {
+    if (!colorName) return null;
+    // Takes the first color if multiple are listed (e.g., "Grey, Black")
+    const firstColor = colorName.split(',')[0].trim().toLowerCase();
+    
+    // ** UPDATED ** Expanded color map
+    const colorMap = {
+        'black': '#000000', 'white': '#FFFFFF', 'grey': '#808080',
+        'gray': '#808080', 'silver': '#C0C0C0', 'red': '#FF0000',
+        'maroon': '#800000', 'orange': '#FFA500', 'yellow': '#FFFF00',
+        'olive': '#808000', 'lime': '#00FF00', 'green': '#008000',
+        'aqua': '#00FFFF', 'cyan': '#00FFFF', 'teal': '#008080',
+        'blue': '#0000FF', 'navy': '#000080', 'fuchsia': '#FF00FF',
+        'magenta': '#FF00FF', 'purple': '#800080', 'pink': '#FFC0CB',
+        'brown': '#A52A2A', 'beige': '#F5F5DC', 'khaki': '#F0E68C',
+        'gold': '#FFD700', 'cream': '#FFFDD0', 'burgundy': '#800020',
+        'mustard': '#FFDB58', 'turquoise': '#40E0D0', 'indigo': '#4B0082',
+        'violet': '#EE82EE', 'plum': '#DDA0DD', 'orchid': '#DA70D6',
+        'salmon': '#FA8072', 'coral': '#FF7F50', 'chocolate': '#D2691E',
+        'tan': '#D2B48C', 'ivory': '#FFFFF0', 'honeydew': '#F0FFF0',
+        'azure': '#F0FFFF', 'lavender': '#E6E6FA', 'rose': '#FFE4E1',
+        'lilac': '#C8A2C8', 'mint': '#98FF98', 'peach': '#FFDAB9',
+        'light blue': '#ADD8E6', 'dark green': '#006400', 'light grey': '#D3D3D3',
+        'dark blue': '#00008B', 'light green': '#90EE90', 'dark grey': '#A9A9A9',
+        'multicolour': '#CCCCCC' // A neutral default for multi-color items
+    };
+
+    const hexValue = colorMap[firstColor] || null;
+    console.log(`Mapping color: '${firstColor}' -> ${hexValue}`); // For debugging
+    return hexValue;
+}
+
+// Send Discord webhook
+async function sendDiscordNotification(embed) {
+  try {
+    await fetch(DISCORD_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ embeds: [embed] }),
+    });
+  } catch (err) {
+    console.log("❌ Failed to send Discord webhook:", err.message);
+  }
+}
+
+// Get random proxy
+function getRandomProxy() {
+  const proxyStr = PROXIES[Math.floor(Math.random() * PROXIES.length)];
+  const [host, port, user, pass] = proxyStr.split(":");
+  return { host, port, user, pass };
+}
+
+// === MAIN LOOP ===
+(async () => {
+  while (true) {
+    let attempt = 1;
+    let items = [];
+
+    while (items.length < BATCH_SIZE && attempt <= 5) {
+      const proxy = getRandomProxy();
+      console.log(`=== Attempt ${attempt} ===`);
+      console.log(`Using proxy: ${proxy.host}:${proxy.port}`);
+
+      const browser = await chromium.launch({ headless: true });
+      const context = await browser.newContext({
+        proxy: {
+          server: `http://${proxy.host}:${proxy.port}`,
+          username: proxy.user,
+          password: pass,
+        },
+        userAgent:
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
+        viewport: { width: 1280, height: 800 },
+      });
+
+      const page = await context.newPage();
+
+      try {
+        console.log("Navigating to Vinted catalog...");
+        const response = await page.goto(VINTED_CATALOG_URL, {
+          waitUntil: "domcontentloaded",
+          timeout: 30000,
+        });
+        console.log(`Response status: ${response.status()}`);
+        await page.waitForTimeout(2000);
+
+        items = await page.$$('div[data-testid="grid-item"]');
+        console.log(`Found ${items.length} items on the page.`);
+
+        if (items.length < BATCH_SIZE) {
+          console.log("Not enough items, retrying...");
+          attempt++;
+          await browser.close();
+          continue;
+        }
+
+        console.log(`Tracking first ${BATCH_SIZE} items...`);
+
+        const trackedItems = [];
+        for (const item of items.slice(0, BATCH_SIZE)) {
+          try {
+            const name = await item.$eval(
+              '[data-testid$="--description-title"]',
+              (el) => el.innerText.trim()
+            );
+            const subtitle = await item.$eval(
+              '[data-testid$="--description-subtitle"]',
+              (el) => el.innerText.trim()
+            );
+            const price = await item.$eval(
+              '[data-testid$="--price-text"]',
+              (el) => el.innerText.trim()
+            );
+            const link = await item.$eval(
+              'a[data-testid$="--overlay-link"]',
+              (el) => el.href
+            );
+
+            trackedItems.push({
+              name,
+              subtitle,
+              price,
+              link,
+              sold: false,
+              startedAt: new Date(),
+              soldAt: null,
+              image: null,
+              color_name: null,
+              color_hex: null,
+            });
+
+            console.log(`Tracking item: ${name} | ${link} | ${price}`);
+          } catch (err) {
+            console.log("Skipped an item due to error:", err.message);
           }
         }
-      }
-    </script>
-  </head>
 
-  <body class="bg-secondary">
-    <header class="bg-card border-b">
-      <div class="container mx-auto py-4 px-4">
-        <h1 class="font-title text-3xl font-bold text-primary">VinTrack</h1>
-      </div>
-    </header>
-
-    <main class="container mx-auto p-4 md:p-6">
-      <div id="salesContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        <!-- Sales items are injected here -->
-      </div>
-    </main>
-    
-    <script>
-      const salesContainer = document.getElementById("salesContainer");
-      let allSales = [];
-      let currentSort = 'newest';
-
-      function getSaleSpeed(item) {
-        if (item.startedAt && item.soldAt) {
-          const startTime = new Date(item.startedAt);
-          const soldTime = new Date(item.soldAt);
-          const diffMs = soldTime - startTime;
-          if (diffMs < 0) return null;
-          const diffMins = Math.floor(diffMs / 60000);
-          const diffSecs = Math.floor((diffMs % 60000) / 1000);
-          return `${diffMins}m ${diffSecs}s`;
-        }
-        if (typeof item.speed === 'number') {
-          const totalSeconds = Math.floor(item.speed);
-          const diffMins = Math.floor(totalSeconds / 60);
-          const diffSecs = totalSeconds % 60;
-          return `${diffMins}m ${diffSecs}s`;
-        }
-        return null;
-      }
-
-      function extractSize(subtitle) {
-        if (!subtitle || typeof subtitle !== 'string') {
-          return null;
-        }
-        const sizePart = subtitle.split('·')[0].trim();
-        return sizePart ? sizePart.toUpperCase() : null;
-      }
-
-      function renderSales() {
-        if (!allSales || allSales.length === 0) {
-          salesContainer.innerHTML = `<p class="col-span-full text-center text-muted-foreground">No sales data found. Waiting for new sales...</p>`;
-          return;
-        }
-
-        const sortedSales = [...allSales].sort((a, b) => {
-            const priceA = parseFloat(a.price.replace(/[^0-9.-]+/g, ""));
-            const priceB = parseFloat(b.price.replace(/[^0-9.-]+/g, ""));
-            switch (currentSort) {
-                case 'price_asc': return priceA - priceB;
-                case 'price_desc': return priceB - priceA;
-                case 'newest': default: return new Date(b.soldAt) - new Date(a.soldAt);
-            }
+        const namesList = trackedItems.map((i) => i.name).join(", ");
+        await sendDiscordNotification({
+          title: "📡 Scan Starting",
+          description: namesList || "No items",
+          color: 0x3498db,
+          timestamp: new Date().toISOString(),
         });
 
-        salesContainer.innerHTML = sortedSales.map(item => {
-          const saleSpeed = getSaleSpeed(item);
-          const saleSpeedHTML = saleSpeed ? `<p class="text-xs text-muted-foreground mt-1">Sold in: ${saleSpeed}</p>` : '';
-          
-          const size = extractSize(item.subtitle);
-          
-          // ** FIX **: Use a default color if item.color_hex is null
-          const colorHex = item.color_hex || '#CCCCCC'; // Default to gray
-          const isWhite = colorHex.toUpperCase() === '#FFFFFF';
-          const borderClass = isWhite ? 'border border-gray-400' : '';
+        let keepChecking = true;
+        let isClosing = false;
 
-          // ** FIX **: Always render the color circle div
-          const colorCircleHTML = `
-            <div class="mt-1 w-4 h-4 rounded-full ${borderClass}" style="background-color: ${colorHex};"></div>
-          `;
+        const interval = setInterval(async () => {
+          if (!keepChecking || isClosing) return;
 
-          const sizeAndColorHTML = size ? `
-            <div class="flex flex-col items-end flex-shrink-0">
-                <span class="text-xs font-bold text-gray-800">${size}</span>
-                ${colorCircleHTML}
-            </div>
-          ` : '';
+          for (const item of trackedItems) {
+            if (!keepChecking || isClosing) return;
+            if (item.sold) continue;
 
+            let itemPage;
+            try {
+              itemPage = await context.newPage();
+              await itemPage.goto(item.link, {
+                waitUntil: "domcontentloaded",
+                timeout: 15000,
+              });
+              await itemPage.waitForTimeout(1500);
 
-          return `
-            <div class="bg-card text-card-foreground border rounded-lg overflow-hidden shadow flex flex-col">
-              <a href="${item.link}" target="_blank" rel="noopener noreferrer" class="block relative">
-                <img src="${item.image || 'https://via.placeholder.com/300'}" alt="${item.name}" class="w-full h-56 object-cover" loading="lazy" />
-              </a>
-              <div class="p-3 flex flex-col flex-grow">
-                <div class="flex justify-between items-start gap-2">
-                  <p class="font-semibold text-sm">${item.name}</p>
-                  ${sizeAndColorHTML}
-                </div>
-                ${saleSpeedHTML}
-                <div class="flex-grow"></div>
-                <p class="text-lg font-bold mt-2">${item.price}</p>
-                <a href="${item.link}" target="_blank" rel="noopener noreferrer" class="mt-3 text-center w-full bg-transparent border border-primary text-primary font-bold py-2 px-4 rounded-md hover:bg-primary hover:text-primary-foreground transition-colors">
-                  View
-                </a>
-              </div>
-            </div>
-          `;
-        }).join("");
+              const soldElement = await itemPage.$(
+                '[data-testid="item-status--content"]'
+              );
+              const isSold = soldElement
+                ? (await soldElement.innerText()).toLowerCase().includes("sold")
+                : false;
+
+              if (isSold) {
+                item.sold = true;
+                item.soldAt = new Date();
+
+                try {
+                  const imgEl = await itemPage.$('img[data-testid^="item-photo-"]');
+                  if (imgEl) item.image = await imgEl.getAttribute("src");
+                } catch (err) {
+                  console.log("Failed to fetch image:", err.message);
+                }
+
+                // Fetch color information
+                try {
+                    const colorElement = await itemPage.$('div[data-testid="item-attributes-color"] div[itemprop="color"]');
+                    if (colorElement) {
+                        const colorName = await colorElement.innerText();
+                        item.color_name = colorName.trim();
+                        item.color_hex = mapColorToHex(item.color_name);
+                    }
+                } catch (err) {
+                    console.log("Could not fetch color for:", item.name);
+                }
+                
+                const sales = loadSales();
+                sales.push(item);
+                saveSales(sales);
+
+                console.log(
+                  `✅ Item SOLD: ${item.name} | ${item.link} | ${item.price}`
+                );
+
+                await sendDiscordNotification({
+                  title: "🛑 Item SOLD",
+                  color: 0xff0000,
+                  fields: [
+                    { name: "Name", value: item.name, inline: false },
+                    { name: "Price", value: item.price, inline: true },
+                    { name: "Color", value: item.color_name || "N/A", inline: true},
+                    { name: "Link", value: item.link, inline: false },
+                  ],
+                  image: item.image ? { url: item.image } : undefined,
+                  timestamp: new Date().toISOString(),
+                });
+              } else {
+                console.log(`Item still available: ${item.name}`);
+              }
+            } catch (err) {
+              if (!isClosing) console.log("Error checking item:", err.message);
+            } finally {
+              if (itemPage) await itemPage.close().catch(() => {});
+            }
+          }
+        }, CHECK_INTERVAL);
+
+        await new Promise((resolve) => setTimeout(resolve, BATCH_DURATION));
+
+        console.log("Batch duration ended. Closing browser...");
+        keepChecking = false;
+        isClosing = true;
+        clearInterval(interval);
+        await context.close().catch(() => {});
+        await browser.close().catch(() => {});
+        break; 
+      } catch (err) {
+        console.log("Navigation or extraction error:", err.message);
+        attempt++;
+        await browser.close().catch(() => {});
       }
+    }
 
-      async function fetchSales() {
-        try {
-          const apiUrl = `${window.location.origin}/api/sales`;
-          const res = await fetch(apiUrl);
-          allSales = await res.json();
-          renderSales();
-        } catch (err) {
-          console.error("Failed to fetch sales:", err);
-          salesContainer.innerHTML = `<p class="col-span-full text-destructive text-center">Error loading sales data. Please check the console.</p>`;
-        }
-      }
-
-      fetchSales();
-      setInterval(fetchSales, 5000);
-    </script>
-  </body>
-</html>
+    if (items.length < BATCH_SIZE) {
+      console.log(
+        "Failed to load enough items after multiple attempts. Restarting main loop..."
+      );
+    }
+  }
+})();
 
