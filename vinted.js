@@ -8,7 +8,7 @@ import { PROXIES, DISCORD_WEBHOOK_URL, VINTED_CATALOG_URL } from "./config.js";
 // Settings
 const BATCH_SIZE = 50; // number of items to track
 const CHECK_INTERVAL = 60 * 1000; // 60 seconds
-const BATCH_DURATION = 5 * 60 * 1000; // 10 minutes
+const BATCH_DURATION = 5 * 60 * 1000; // 5 minutes
 
 // Path to sales data
 const SALES_FILE = path.join(process.cwd(), "sales.json");
@@ -170,16 +170,23 @@ function getRandomProxy() {
                 item.sold = true;
                 item.soldAt = new Date();
 
-                // Fetch image
+                // Fetch image safely
                 try {
+                  await itemPage.waitForSelector(
+                    'img[data-testid$="--image--img"]',
+                    { timeout: 3000 }
+                  );
                   const imgEl = await itemPage.$(
                     'img[data-testid$="--image--img"]'
                   );
-                  item.image = imgEl
-                    ? await imgEl.getAttribute("src")
-                    : null;
+                  item.image = imgEl ? await imgEl.getAttribute("src") : null;
+                  if (!item.image) {
+                    const firstImg = await itemPage.$("img");
+                    item.image = firstImg ? await firstImg.getAttribute("src") : null;
+                  }
                 } catch (err) {
                   console.log("Failed to fetch image:", err.message);
+                  item.image = null;
                 }
 
                 // Save to sales.json
