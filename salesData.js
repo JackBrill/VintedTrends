@@ -1,18 +1,12 @@
 // salesData.js
 import fs from "fs";
-const FILE_PATH = "./salesData.json";
-
-export function readSales() {
-  try {
-    const data = fs.readFileSync(FILE_PATH, "utf-8");
-    return JSON.parse(data);
-  } catch {
-    return [];
-  }
-}
+const filePath = "./salesData.json";
 
 export function addSale(item) {
-  const sales = readSales();
-  sales.push(item);
-  fs.writeFileSync(FILE_PATH, JSON.stringify(sales, null, 2));
+  let data = [];
+  try {
+    data = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+  } catch {}
+  data.unshift(item); // add to top
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
 }
