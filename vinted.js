@@ -9,7 +9,7 @@ import { PROXIES, DISCORD_WEBHOOK_URL, VINTED_CATALOG_URL } from "./config.js";
 const BATCH_SIZE = 50; // number of items to track
 const CHECK_INTERVAL = 60 * 1000; // 60 seconds
 const BATCH_DURATION = 5 * 60 * 1000; // 5 minutes
-const CONCURRENT_CHECKS = 20; // Number of items to check at once
+const CONCURRENT_CHECKS = 10; // Number of items to check at once
 const VERBOSE_LOGGING = true; // ** NEW ** Set to true to see page content logs
 
 // Path to sales data
