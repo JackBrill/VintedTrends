@@ -29,13 +29,16 @@ function saveSales(data) {
 }
 
 /**
- * Converts a color name (e.g., "Grey") into a hex code (e.g., "#808080").
+ * Converts a color name into a hex code.
  * @param {string} colorName - The color name from Vinted.
  * @returns {string|null} The corresponding hex code or null if not found.
  */
 function mapColorToHex(colorName) {
     if (!colorName) return null;
+    // Takes the first color if multiple are listed (e.g., "Grey, Black")
     const firstColor = colorName.split(',')[0].trim().toLowerCase();
+    
+    // ** NEW ** Expanded color map
     const colorMap = {
         'black': '#000000', 'white': '#FFFFFF', 'grey': '#808080',
         'gray': '#808080', 'silver': '#C0C0C0', 'red': '#FF0000',
@@ -46,10 +49,19 @@ function mapColorToHex(colorName) {
         'magenta': '#FF00FF', 'purple': '#800080', 'pink': '#FFC0CB',
         'brown': '#A52A2A', 'beige': '#F5F5DC', 'khaki': '#F0E68C',
         'gold': '#FFD700', 'cream': '#FFFDD0', 'burgundy': '#800020',
-        'mustard': '#FFDB58', 'turquoise': '#40E0D0',
+        'mustard': '#FFDB58', 'turquoise': '#40E0D0', 'indigo': '#4B0082',
+        'violet': '#EE82EE', 'plum': '#DDA0DD', 'orchid': '#DA70D6',
+        'salmon': '#FA8072', 'coral': '#FF7F50', 'chocolate': '#D2691E',
+        'tan': '#D2B48C', 'ivory': '#FFFFF0', 'honeydew': '#F0FFF0',
+        'azure': '#F0FFFF', 'lavender': '#E6E6FA', 'rose': '#FFE4E1',
+        'light blue': '#ADD8E6', 'dark green': '#006400', 'light grey': '#D3D3D3',
+        'dark blue': '#00008B', 'light green': '#90EE90', 'dark grey': '#A9A9A9',
         'multicolour': '#CCCCCC' // A neutral default for multi-color items
     };
-    return colorMap[firstColor] || null;
+
+    const hexValue = colorMap[firstColor] || null;
+    console.log(`Mapping color: '${firstColor}' -> ${hexValue}`); // For debugging
+    return hexValue;
 }
 
 // Send Discord webhook
@@ -202,7 +214,7 @@ function getRandomProxy() {
                   console.log("Failed to fetch image:", err.message);
                 }
 
-                // ** NEW ** Fetch color information
+                // Fetch color information
                 try {
                     const colorElement = await itemPage.$('div[data-testid="item-attributes-color"] div[itemprop="color"]');
                     if (colorElement) {
@@ -254,7 +266,7 @@ function getRandomProxy() {
         await context.close().catch(() => {});
         await browser.close().catch(() => {});
         break; 
-      } catch (err) {
+      } catch (err)
         console.log("Navigation or extraction error:", err.message);
         attempt++;
         await browser.close().catch(() => {});
@@ -268,3 +280,4 @@ function getRandomProxy() {
     }
   }
 })();
+
