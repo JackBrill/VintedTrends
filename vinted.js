@@ -103,42 +103,49 @@ async function sendDiscordNotification(embed) {
         }
 
         const trackedItems = [];
-        for (const item of items.slice(0, BATCH_SIZE)) {
-          try {
-            const name = await item.$eval(
-              '[data-testid$="--description-title"]',
-              (el) => el.innerText.trim()
-            );
-            const subtitle = await item.$eval(
-              '[data-testid$="--description-subtitle"]',
-              (el) => el.innerText.trim()
-            );
-            const price = await item.$eval(
-              '[data-testid$="--price-text"]',
-              (el) => el.innerText.trim()
-            );
-            const link = await item.$eval(
-              'a[data-testid$="--overlay-link"]',
-              (el) => el.href
-            );
-            const image = await item.$eval(
-              'img[data-testid$="--image"]',
-              (el) => el.src
-            );
+for (const item of items.slice(0, BATCH_SIZE)) {
+  try {
+    const name = await item.$eval(
+      '[data-testid$="--description-title"]',
+      (el) => el.innerText.trim()
+    );
+    const subtitle = await item.$eval(
+      '[data-testid$="--description-subtitle"]',
+      (el) => el.innerText.trim()
+    );
+    const price = await item.$eval(
+      '[data-testid$="--price-text"]',
+      (el) => el.innerText.trim()
+    );
+    const link = await item.$eval(
+      'a[data-testid$="--overlay-link"]',
+      (el) => el.href
+    );
 
-            trackedItems.push({
-              name,
-              subtitle,
-              price,
-              link,
-              image,
-              sold: false,
-              startedAt: new Date(),
-              soldAt: null,
-            });
-            console.log(`Tracking item: ${name} | ${link} | ${price}`);
-          } catch {}
-        }
+    // Image is optional
+    let image = "";
+    try {
+      image = await item.$eval('img', (el) => el.src);
+    } catch {
+      image = "";
+    }
+
+    trackedItems.push({
+      name,
+      subtitle,
+      price,
+      link,
+      image,
+      sold: false,
+      startedAt: new Date(),
+      soldAt: null,
+    });
+    console.log(`Tracking item: ${name} | ${link} | ${price}`);
+  } catch (err) {
+    console.log("Skipped an item due to error:", err.message);
+  }
+}
+
 
         // Notify scan start
         notifier.emit("scan_start", trackedItems);
