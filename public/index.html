@@ -67,8 +67,19 @@
 
   <body class="bg-secondary">
     <header class="bg-card border-b">
-      <div class="container mx-auto py-4 px-4">
+      <!-- ** UPDATED ** Header now uses flexbox to align title and sort dropdown -->
+      <div class="container mx-auto py-4 px-4 flex justify-between items-center">
         <h1 class="font-title text-3xl font-bold text-primary">VinTrack</h1>
+        <!-- ** NEW ** Sort by dropdown menu -->
+        <div>
+          <label for="sortOptions" class="sr-only">Sort by</label>
+          <select id="sortOptions" class="rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50">
+            <option value="newest" selected>Most Recent</option>
+            <option value="time_asc">Time Taken</option>
+            <option value="price_asc">Price: Low to High</option>
+            <option value="price_desc">Price: High to Low</option>
+          </select>
+        </div>
       </div>
     </header>
 
@@ -80,14 +91,22 @@
     
     <script>
       const salesContainer = document.getElementById("salesContainer");
+      const sortOptions = document.getElementById("sortOptions");
       let allSales = [];
+      let currentSort = 'newest'; // Default sort order
+
+      function getSaleDurationInMs(item) {
+        if (!item.startedAt || !item.soldAt) return Infinity; // Put items without time data last
+        const startTime = new Date(item.startedAt);
+        const soldTime = new Date(item.soldAt);
+        const duration = soldTime - startTime;
+        return duration > 0 ? duration : Infinity;
+      }
 
       function getSaleSpeed(item) {
         if (item.startedAt && item.soldAt) {
-          const startTime = new Date(item.startedAt);
-          const soldTime = new Date(item.soldAt);
-          const diffMs = soldTime - startTime;
-          if (diffMs < 0) return null;
+          const diffMs = getSaleDurationInMs(item);
+          if (diffMs === Infinity) return null;
           const diffMins = Math.floor(diffMs / 60000);
           const diffSecs = Math.floor((diffMs % 60000) / 1000);
           return `${diffMins}m ${diffSecs}s`;
@@ -138,7 +157,24 @@
           return;
         }
 
-        const sortedSales = [...allSales].sort((a, b) => new Date(b.soldAt) - new Date(a.soldAt));
+        // ** UPDATED ** Sorting logic now handles all options
+        const sortedSales = [...allSales].sort((a, b) => {
+          switch (currentSort) {
+            case 'time_asc':
+              return getSaleDurationInMs(a) - getSaleDurationInMs(b);
+            case 'price_asc':
+              const priceA_asc = parseFloat(a.price.replace(/[^0-9.-]+/g, ""));
+              const priceB_asc = parseFloat(b.price.replace(/[^0-9.-]+/g, ""));
+              return priceA_asc - priceB_asc;
+            case 'price_desc':
+              const priceA_desc = parseFloat(a.price.replace(/[^0-9.-]+/g, ""));
+              const priceB_desc = parseFloat(b.price.replace(/[^0-9.-]+/g, ""));
+              return priceB_desc - priceA_desc;
+            case 'newest':
+            default:
+              return new Date(b.soldAt) - new Date(a.soldAt);
+          }
+        });
 
         salesContainer.innerHTML = sortedSales.map(item => {
           const saleSpeed = getSaleSpeed(item);
@@ -146,16 +182,12 @@
           
           const size = extractSize(item.subtitle);
           
-          const colorHex = mapColorNameToHex(item.color_name) || '#CCCCCC'; // Default to gray if no match
+          const colorHex = mapColorNameToHex(item.color_name) || '#CCCCCC';
           const isWhite = colorHex.toUpperCase() === '#FFFFFF';
           const borderClass = isWhite ? 'border border-gray-400' : '';
           
-          // Removed top margin from circle
-          const colorCircleHTML = `
-            <div class="w-4 h-4 rounded-full ${borderClass}" style="background-color: ${colorHex};"></div>
-          `;
+          const colorCircleHTML = `<div class="w-4 h-4 rounded-full ${borderClass}" style="background-color: ${colorHex};"></div>`;
 
-          // ** UPDATED ** Changed flex-col to flex-row, added items-center and a gap
           const sizeAndColorHTML = size ? `
             <div class="flex items-center gap-1.5 flex-shrink-0">
               <span class="text-xs font-bold text-gray-800">${size}</span>
@@ -190,12 +222,18 @@
           const apiUrl = `${window.location.origin}/api/sales`;
           const res = await fetch(apiUrl);
           allSales = await res.json();
-          renderSales();
+          renderSales(); // Always re-render after fetching new data
         } catch (err) {
           console.error("Failed to fetch sales:", err);
           salesContainer.innerHTML = `<p class="col-span-full text-destructive text-center">Error loading sales data. Please check the console.</p>`;
         }
       }
+
+      // ** NEW ** Event listener for the sort dropdown
+      sortOptions.addEventListener('change', (e) => {
+        currentSort = e.target.value;
+        renderSales(); // Re-render the sales with the new sort order
+      });
 
       fetchSales();
       setInterval(fetchSales, 5000);
