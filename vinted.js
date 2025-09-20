@@ -29,7 +29,7 @@ const PROXIES = [
 ];
 
 // Discord webhook (replace with your own)
-const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1418733868520964286/McnY3GDm_4xPLr8eo-e_TZM3NUQXz8-LkHde-uWpc1AGpCqt-3ykkr5jz_TaxiMWlGte";
+const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1418908479229530223/8_Eg73-4nZL-QoaGKjXIJF0UOxEAMBiuZGRv5CS3VGd11gLvblOgaLNk1UIqmCbTyA6Z";
 
 // Settings
 const BATCH_SIZE = 30; // number of items to track
@@ -86,7 +86,7 @@ async function sendDiscordNotification(embed) {
       try {
         console.log("Navigating to Vinted catalog...");
         const response = await page.goto(
-          "https://www.vinted.co.uk/catalog?search_id=26450535328&page=1&order=newest_first",
+          "https://www.vinted.co.uk/catalog?search_id=26084673753&catalog[]=2050&order=newest_first",
           { waitUntil: "domcontentloaded", timeout: 30000 }
         );
 
