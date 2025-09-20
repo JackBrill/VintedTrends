@@ -6,13 +6,27 @@
     <title>VinTrack - Vinted Sales Dashboard</title>
     <meta name="description" content="A live dashboard tracking the latest sold items on Vinted." />
     <meta name="author" content="VintedTrends Project" />
+
+    <!-- Google Font Import for the new title font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&display=swap" rel="stylesheet">
+
     <link rel="stylesheet" href="output.css" />
+
+    <!-- Custom style to apply the new font -->
+    <style>
+      .font-title {
+        font-family: 'Cinzel Decorative', serif;
+      }
+    </style>
   </head>
 
   <body class="bg-secondary">
     <header class="bg-card border-b">
       <div class="container mx-auto p-4">
-        <h1 class="text-3xl font-bold text-primary">VinTrack</h1>
+        <!-- The new font is applied to the title -->
+        <h1 class="font-title text-3xl font-bold text-primary">VinTrack</h1>
       </div>
     </header>
 
@@ -25,3 +39,4 @@
     <script src="main.js" defer></script>
   </body>
 </html>
+
