@@ -28,7 +28,6 @@ function getSaleSpeed(item) {
 
 async function fetchSales() {
   try {
-    // CHANGE THIS LINE to use the API endpoint
     const res = await fetch("/api/sales"); 
     const sales = await res.json();
 
@@ -47,7 +46,6 @@ async function fetchSales() {
     salesContainer.innerHTML = sortedSales.map(item => {
       const saleSpeed = getSaleSpeed(item);
       
-      // Conditionally create HTML for subtitle and sale speed if they exist
       const subtitleHTML = item.subtitle ? `<p class="text-xs text-muted-foreground truncate mb-2">${item.subtitle}</p>` : '';
       const saleSpeedHTML = saleSpeed ? `<p class="text-sm text-muted-foreground mb-4">Sold in: <span class="font-medium">${saleSpeed}</span></p>` : '';
 
@@ -59,10 +57,11 @@ async function fetchSales() {
         <div class="p-4 flex flex-col flex-grow">
           <h3 class="font-semibold text-lg mb-1">${item.name}</h3>
           ${subtitleHTML}
-          <div class="flex-grow"></div> <p class="text-2xl font-bold mt-2 text-primary">${item.price}</p>
+          <div class="flex-grow"></div>
+          <p class="text-2xl font-bold mt-2 text-primary">${item.price}</p>
           ${saleSpeedHTML}
           <a href="${item.link}" target="_blank" rel="noopener noreferrer" class="mt-auto text-center bg-primary text-primary-foreground font-bold py-2 px-4 rounded-md hover:bg-vinted-teal-light transition-colors">
-            View on Vinted
+            View
           </a>
         </div>
       </div>
@@ -74,8 +73,5 @@ async function fetchSales() {
   }
 }
 
-// Fetch data on initial load
 fetchSales();
-
-// Refresh data every 5 seconds from the API
 setInterval(fetchSales, 5000);
