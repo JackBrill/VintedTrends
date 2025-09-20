@@ -1,6 +1,7 @@
 // vinted.js
 import { chromium } from "playwright";
 import fetch from "node-fetch";
+import notifier from "./notifier.js";
 
 // === CONFIG ===
 
@@ -28,24 +29,21 @@ const PROXIES = [
   "154.194.26.109:6350:mtqikwov:autmrqhdcnfn",
 ];
 
-// Discord webhook (replace with your own)
+// Discord webhook
 const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1418908479229530223/8_Eg73-4nZL-QoaGKjXIJF0UOxEAMBiuZGRv5CS3VGd11gLvblOgaLNk1UIqmCbTyA6Z";
 
 // Settings
-const BATCH_SIZE = 30; // number of items to track
-const CHECK_INTERVAL = 60 * 1000; // 10 seconds
-const BATCH_DURATION = 10 * 60 * 1000; // 5 minutes
+const BATCH_SIZE = 30;              // number of items to track
+const CHECK_INTERVAL = 60 * 1000;   // 60 seconds
+const BATCH_DURATION = 10 * 60 * 1000; // 10 minutes
 
 // === HELPERS ===
-
-// Get random proxy
 function getRandomProxy() {
   const proxyStr = PROXIES[Math.floor(Math.random() * PROXIES.length)];
   const [host, port, user, pass] = proxyStr.split(":");
   return { host, port, user, pass };
 }
 
-// Send Discord notification
 async function sendDiscordNotification(embed) {
   try {
     await fetch(DISCORD_WEBHOOK_URL, {
@@ -140,7 +138,8 @@ async function sendDiscordNotification(embed) {
           }
         }
 
-        // Send "Scan Starting" embed
+        // Notify scan start
+        notifier.emit("scan_start", trackedItems);
         const namesList = trackedItems.map((i) => i.name).join(", ");
         await sendDiscordNotification({
           title: "📡 Scan Starting",
@@ -183,7 +182,8 @@ async function sendDiscordNotification(embed) {
                 item.soldAt = new Date();
                 console.log(`✅ Item SOLD: ${item.name} | ${item.link} | ${item.price}`);
 
-                // Send SOLD embed
+                notifier.emit("item_sold", item);
+
                 await sendDiscordNotification({
                   title: "🛑 Item SOLD",
                   color: 0xff0000,
@@ -215,18 +215,15 @@ async function sendDiscordNotification(embed) {
           }
         }, CHECK_INTERVAL);
 
-        // Wait batch duration
         await new Promise((resolve) => setTimeout(resolve, BATCH_DURATION));
 
-        // Stop checking and restart new batch
         console.log("Batch duration ended. Closing browser...");
         keepChecking = false;
         isClosing = true;
         clearInterval(interval);
         await context.close().catch(() => {});
         await browser.close().catch(() => {});
-        break; // break out of attempt loop
-
+        break;
       } catch (err) {
         console.log("Navigation or extraction error:", err.message);
         attempt++;
@@ -235,9 +232,7 @@ async function sendDiscordNotification(embed) {
     }
 
     if (items.length < BATCH_SIZE) {
-      console.log(
-        "Failed to load enough items after multiple attempts. Restarting main loop..."
-      );
+      console.log("Failed to load enough items. Restarting main loop...");
     }
   }
 })();
