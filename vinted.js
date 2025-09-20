@@ -38,7 +38,7 @@ function mapColorToHex(colorName) {
     // Takes the first color if multiple are listed (e.g., "Grey, Black")
     const firstColor = colorName.split(',')[0].trim().toLowerCase();
     
-    // ** NEW ** Expanded color map
+    // ** UPDATED ** Expanded color map
     const colorMap = {
         'black': '#000000', 'white': '#FFFFFF', 'grey': '#808080',
         'gray': '#808080', 'silver': '#C0C0C0', 'red': '#FF0000',
@@ -54,6 +54,7 @@ function mapColorToHex(colorName) {
         'salmon': '#FA8072', 'coral': '#FF7F50', 'chocolate': '#D2691E',
         'tan': '#D2B48C', 'ivory': '#FFFFF0', 'honeydew': '#F0FFF0',
         'azure': '#F0FFFF', 'lavender': '#E6E6FA', 'rose': '#FFE4E1',
+        'lilac': '#C8A2C8', 'mint': '#98FF98', 'peach': '#FFDAB9',
         'light blue': '#ADD8E6', 'dark green': '#006400', 'light grey': '#D3D3D3',
         'dark blue': '#00008B', 'light green': '#90EE90', 'dark grey': '#A9A9A9',
         'multicolour': '#CCCCCC' // A neutral default for multi-color items
