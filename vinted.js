@@ -6,9 +6,9 @@ import fetch from "node-fetch";
 import { PROXIES, DISCORD_WEBHOOK_URL, VINTED_CATALOG_URL } from "./config.js";
 
 // Settings
-const BATCH_SIZE = 30; // number of items to track
+const BATCH_SIZE = 50; // number of items to track
 const CHECK_INTERVAL = 60 * 1000; // 60 seconds
-const BATCH_DURATION = 10 * 60 * 1000; // 10 minutes
+const BATCH_DURATION = 5 * 60 * 1000; // 10 minutes
 
 // Path to sales data
 const SALES_FILE = path.join(process.cwd(), "sales.json");
