@@ -128,7 +128,6 @@
         return null;
       }
 
-      // ** NEW ** Function to calculate "time ago"
       function timeAgo(dateString) {
         if (!dateString) return null;
         const soldDate = new Date(dateString);
@@ -210,7 +209,6 @@
             </div>
           ` : '';
 
-          // ** UPDATED ** Combined sale speed and time ago into a single flex container
           const soldTimeAgo = timeAgo(item.soldAt);
           const saleDetailsHTML = `
             <div class="flex justify-between items-center mt-1 text-xs text-muted-foreground">
@@ -222,7 +220,8 @@
           return `
             <div class="bg-card text-card-foreground border rounded-lg overflow-hidden shadow flex flex-col">
               <a href="${item.link}" target="_blank" rel="noopener noreferrer" class="block relative">
-                <img src="${item.image || 'https://via.placeholder.com/300'}" alt="${item.name}" class="w-full h-56 object-cover" loading="lazy" />
+                <!-- ** UPDATED ** Image height is now taller -->
+                <img src="${item.image || 'https://via.placeholder.com/300'}" alt="${item.name}" class="w-full h-72 object-cover" loading="lazy" />
               </a>
               <div class="p-3 flex flex-col flex-grow">
                 <div class="flex justify-between items-start gap-2">
