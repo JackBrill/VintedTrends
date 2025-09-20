@@ -1,15 +1,31 @@
-// vinted.js
 import { chromium } from "playwright";
+import fs from "fs";
+import path from "path";
 import fetch from "node-fetch";
-import fs from "fs/promises";
 import { PROXIES, DISCORD_WEBHOOK_URL, VINTED_CATALOG_URL } from "./config.js";
 
-// Settings
-const BATCH_SIZE = 30;           // number of items to track per batch
+const SALES_FILE = path.resolve("./sales.json");
+
+const BATCH_SIZE = 30; // number of items to track
 const CHECK_INTERVAL = 60 * 1000; // check every 60 seconds
 const BATCH_DURATION = 10 * 60 * 1000; // 10 minutes per batch
 
-// Helper to get random proxy
+// Load sales.json or create empty array
+function loadSales() {
+  if (!fs.existsSync(SALES_FILE)) return [];
+  try {
+    return JSON.parse(fs.readFileSync(SALES_FILE, "utf-8"));
+  } catch {
+    return [];
+  }
+}
+
+// Save to sales.json
+function saveSales(data) {
+  fs.writeFileSync(SALES_FILE, JSON.stringify(data, null, 2));
+}
+
+// Get random proxy
 function getRandomProxy() {
   const proxyStr = PROXIES[Math.floor(Math.random() * PROXIES.length)];
   const [host, port, user, pass] = proxyStr.split(":");
@@ -25,49 +41,46 @@ async function sendDiscordNotification(embed) {
       body: JSON.stringify({ embeds: [embed] }),
     });
   } catch (err) {
-    console.log("❌ Failed to send Discord webhook:", err.message);
+    console.log("❌ Failed Discord webhook:", err.message);
   }
 }
 
-// Save to sales.json
-async function saveSale(item) {
-  try {
-    const dataRaw = await fs.readFile("sales.json", "utf8").catch(() => "[]");
-    const sales = JSON.parse(dataRaw);
-    sales.unshift(item); // add to top
-    await fs.writeFile("sales.json", JSON.stringify(sales, null, 2));
-  } catch (err) {
-    console.log("❌ Failed to save sale:", err.message);
-  }
-}
-
-// Main function
-export default async function startVintedBot() {
+// Main scanning loop
+(async () => {
   while (true) {
     let attempt = 1;
     let items = [];
 
     while (items.length < BATCH_SIZE && attempt <= 5) {
       const proxy = getRandomProxy();
-      console.log(`=== Attempt ${attempt} === Using proxy: ${proxy.host}:${proxy.port}`);
+      console.log(`=== Attempt ${attempt} ===`);
+      console.log(`Using proxy: ${proxy.host}:${proxy.port}`);
 
       const browser = await chromium.launch({ headless: true });
       const context = await browser.newContext({
-        proxy: { server: `http://${proxy.host}:${proxy.port}`, username: proxy.user, password: proxy.pass },
-        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
-        viewport: { width: 1280, height: 800 }
+        proxy: {
+          server: `http://${proxy.host}:${proxy.port}`,
+          username: proxy.user,
+          password: proxy.pass,
+        },
+        userAgent:
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
+        viewport: { width: 1280, height: 800 },
       });
 
       const page = await context.newPage();
 
       try {
         console.log("Navigating to Vinted catalog...");
-        const response = await page.goto(VINTED_CATALOG_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
+        const response = await page.goto(VINTED_CATALOG_URL, {
+          waitUntil: "domcontentloaded",
+          timeout: 30000,
+        });
         console.log(`Response status: ${response.status()}`);
         await page.waitForTimeout(2000);
 
         items = await page.$$('div[data-testid="grid-item"]');
-        console.log(`Found ${items.length} items on the page.`);
+        console.log(`Found ${items.length} items.`);
 
         if (items.length < BATCH_SIZE) {
           console.log("Not enough items, retrying...");
@@ -76,23 +89,51 @@ export default async function startVintedBot() {
           continue;
         }
 
-        console.log(`Tracking first ${BATCH_SIZE} items...`);
         const trackedItems = [];
         for (const item of items.slice(0, BATCH_SIZE)) {
           try {
-            const name = await item.$eval('[data-testid$="--description-title"]', el => el.innerText.trim());
-            const price = await item.$eval('[data-testid$="--price-text"]', el => el.innerText.trim());
-            const link = await item.$eval('a[data-testid$="--overlay-link"]', el => el.href);
-            trackedItems.push({ name, price, link, sold: false, startedAt: new Date().toISOString(), soldAt: null });
-            console.log(`Tracking item: ${name} | ${link} | ${price}`);
+            const name = await item.$eval(
+              '[data-testid$="--description-title"]',
+              (el) => el.innerText.trim()
+            );
+            const subtitle = await item.$eval(
+              '[data-testid$="--description-subtitle"]',
+              (el) => el.innerText.trim()
+            );
+            const price = await item.$eval(
+              '[data-testid$="--price-text"]',
+              (el) => el.innerText.trim()
+            );
+            const link = await item.$eval(
+              'a[data-testid$="--overlay-link"]',
+              (el) => el.href
+            );
+
+            trackedItems.push({
+              name,
+              subtitle,
+              price,
+              link,
+              sold: false,
+              startedAt: new Date().toISOString(),
+              soldAt: null,
+              image: null,
+            });
+
+            console.log(`Tracking item: ${name} | ${price}`);
           } catch (err) {
-            console.log("Skipped item due to error:", err.message);
+            console.log("Skipped an item due to error:", err.message);
           }
         }
 
-        // Send "Scan Starting" embed to Discord
-        const namesList = trackedItems.map(i => i.name).join(", ");
-        await sendDiscordNotification({ title: "📡 Scan Starting", description: namesList || "No items", color: 0x3498db, timestamp: new Date().toISOString() });
+        // Discord embed for batch starting
+        const namesList = trackedItems.map((i) => i.name).join(", ");
+        await sendDiscordNotification({
+          title: "📡 Scan Starting",
+          description: namesList || "No items",
+          color: 0x3498db,
+          timestamp: new Date().toISOString(),
+        });
 
         let keepChecking = true;
         const interval = setInterval(async () => {
@@ -102,26 +143,48 @@ export default async function startVintedBot() {
             if (item.sold) continue;
 
             const itemPage = await context.newPage().catch(() => null);
-            if (!itemPage) return;
+            if (!itemPage) continue;
 
             try {
-              await itemPage.goto(item.link, { waitUntil: "domcontentloaded", timeout: 15000 });
+              await itemPage.goto(item.link, {
+                waitUntil: "domcontentloaded",
+                timeout: 15000,
+              });
               await itemPage.waitForTimeout(1500);
 
-              const soldElement = await itemPage.$('[data-testid="item-status--content"]');
-              const isSold = soldElement ? (await soldElement.innerText()).toLowerCase().includes("sold") : false;
+              const soldElement = await itemPage.$(
+                '[data-testid="item-status--content"]'
+              );
+              const isSold = soldElement
+                ? (await soldElement.innerText())
+                    .toLowerCase()
+                    .includes("sold")
+                : false;
 
               if (isSold) {
                 item.sold = true;
                 item.soldAt = new Date().toISOString();
 
-                // Get item image
-                const image = await itemPage.$eval('img[data-testid$="--image--img"]', el => el.src).catch(() => "");
+                // Fetch image only when sold
+                try {
+                  item.image = await itemPage.$eval(
+                    'img[data-testid$="--image--img"]',
+                    (el) => el.src
+                  );
+                } catch {
+                  item.image = null;
+                }
 
-                console.log(`✅ Item SOLD: ${item.name} | ${item.link} | ${item.price}`);
-                await saveSale({ name: item.name, price: item.price, link: item.link, image, startedAt: item.startedAt, soldAt: item.soldAt });
+                console.log(
+                  `✅ Item SOLD: ${item.name} | ${item.link} | ${item.price}`
+                );
 
-                // Send Discord embed for sold item
+                // Add to sales.json
+                const salesData = loadSales();
+                salesData.unshift(item);
+                saveSales(salesData);
+
+                // Discord embed
                 await sendDiscordNotification({
                   title: "🛑 Item SOLD",
                   color: 0xff0000,
@@ -132,6 +195,7 @@ export default async function startVintedBot() {
                     { name: "Sold At", value: item.soldAt, inline: true },
                     { name: "Link", value: item.link, inline: false },
                   ],
+                  image: item.image ? { url: item.image } : undefined,
                   timestamp: new Date().toISOString(),
                 });
               } else {
@@ -145,8 +209,7 @@ export default async function startVintedBot() {
           }
         }, CHECK_INTERVAL);
 
-        // Wait batch duration
-        await new Promise(resolve => setTimeout(resolve, BATCH_DURATION));
+        await new Promise((resolve) => setTimeout(resolve, BATCH_DURATION));
 
         console.log("Batch duration ended. Closing browser...");
         keepChecking = false;
@@ -154,7 +217,6 @@ export default async function startVintedBot() {
         await context.close().catch(() => {});
         await browser.close().catch(() => {});
         break;
-
       } catch (err) {
         console.log("Navigation or extraction error:", err.message);
         attempt++;
@@ -163,7 +225,9 @@ export default async function startVintedBot() {
     }
 
     if (items.length < BATCH_SIZE) {
-      console.log("Failed to load enough items after multiple attempts. Restarting main loop...");
+      console.log(
+        "Failed to load enough items after multiple attempts. Restarting main loop..."
+      );
     }
   }
-}
+})();
