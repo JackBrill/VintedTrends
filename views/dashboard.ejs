@@ -1,1 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Vinted Bot Dashboard</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <h1>👕 Vinted Trends Dashboard</h1>
+
+  <section>
+    <h2>Active Scan</h2>
+    <ul id="scan-list"></ul>
+  </section>
+
+  <section>
+    <h2>Sold Items</h2>
+    <ul id="sold-list"></ul>
+  </section>
+
+  <script>
+    const socket = io();
+
+    socket.on("scan_start", (items) => {
+      const list = document.getElementById("scan-list");
+      list.innerHTML = "";
+      items.forEach(i => {
+        const li = document.createElement("li");
+        li.textContent = `${i.name} - ${i.price}`;
+        list.appendChild(li);
+      });
+    });
+
+    socket.on("item_sold", (item) => {
+      const list = document.getElementById("sold-list");
+      const li = document.createElement("li");
+      li.textContent = `✅ ${item.name} sold at ${item.soldAt}`;
+      list.appendChild(li);
+    });
+  </script>
+</body>
+</html>
 
