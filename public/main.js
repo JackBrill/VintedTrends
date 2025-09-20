@@ -1,38 +1,34 @@
-// public/main.js
+const salesContainer = document.getElementById("salesContainer");
 
 async function fetchSales() {
   try {
     const res = await fetch("/api/sales");
     const sales = await res.json();
 
-    const container = document.getElementById("salesContainer");
-    container.innerHTML = ""; // clear previous items
-
-    if (sales.length === 0) {
-      container.innerHTML = "<p>No sold items yet.</p>";
-      return;
-    }
-
-    sales.forEach((item) => {
-      const itemEl = document.createElement("div");
-      itemEl.classList.add("sale-item");
-
-      itemEl.innerHTML = `
-        <a href="${item.link}" target="_blank">
-          <img src="${item.image}" alt="${item.name}" class="sale-img"/>
-          <h3>${item.name}</h3>
-        </a>
+    salesContainer.innerHTML = sales.map(item => `
+      <div class="saleItem">
+        <img src="${item.image || 'https://via.placeholder.com/250'}" alt="${item.name}" />
+        <h3>${item.name}</h3>
         <p>Price: ${item.price}</p>
-        <p>Sold in: ${item.soldTime} seconds</p>
-      `;
-
-      container.appendChild(itemEl);
-    });
+        <p>Sold in: ${getSoldDuration(item.startedAt, item.soldAt)}</p>
+        <a href="${item.link}" target="_blank">View on Vinted</a>
+      </div>
+    `).join("");
   } catch (err) {
-    console.error("Failed to fetch sales:", err);
+    console.log("Failed to fetch sales:", err);
   }
 }
 
-// Refresh sales every 10 seconds
+function getSoldDuration(start, sold) {
+  if (!sold) return "Still available";
+  const startTime = new Date(start);
+  const soldTime = new Date(sold);
+  const diffMs = soldTime - startTime;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffSecs = Math.floor((diffMs % 60000) / 1000);
+  return `${diffMins}m ${diffSecs}s`;
+}
+
+// Refresh every 5 seconds
 fetchSales();
-setInterval(fetchSales, 10000);
+setInterval(fetchSales, 5000);
