@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Vinted Trends Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f4f9; margin: 20px; }
+    h1 { color: #333; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; }
+    .card { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .card img { max-width: 100%; border-radius: 10px; }
+    .price { font-weight: bold; color: #27ae60; }
+    .speed { color: #888; font-size: 0.9em; }
+  </style>
+</head>
+<body>
+  <h1>🔥 Quick Selling Items</h1>
+  <div id="sales" class="grid"></div>
+
+  <script>
+    async function fetchSales() {
+      const res = await fetch("/api/sales");
+      const data = await res.json();
+      const container = document.getElementById("sales");
+      container.innerHTML = "";
+
+      data.sort((a, b) => new Date(b.soldAt) - new Date(a.soldAt));
+
+      data.forEach(item => {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+          <a href="${item.link}" target="_blank">
+            ${item.image ? `<img src="${item.image}" alt="${item.name}">` : ""}
+          </a>
+          <h3>${item.name}</h3>
+          <p class="price">${item.price}</p>
+          <p class="speed">Sold in ${Math.round(item.speed)}s</p>
+          <p><a href="${item.link}" target="_blank">View on Vinted</a></p>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    setInterval(fetchSales, 5000);
+    fetchSales();
+  </script>
+</body>
+</html>
