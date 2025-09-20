@@ -23,9 +23,9 @@ async function sendDiscordNotification(embed) {
 }
 
 export async function startVintedBot() {
-  const BATCH_SIZE = 30;
+  const BATCH_SIZE = 50;
   const CHECK_INTERVAL = 60 * 1000; // 60 sec
-  const BATCH_DURATION = 10 * 60 * 1000; // 10 min
+  const BATCH_DURATION = 7 * 60 * 1000; // 10 min
 
   while (true) {
     let attempt = 1;
