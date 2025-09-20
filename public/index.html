@@ -132,15 +132,15 @@
           
           const size = extractSize(item.subtitle);
           
-          // NOTE: The 'item.color_hex' property needs to be added by your scraper.
-          // It should contain the hex code for the item's color (e.g., "#FFFFFF").
+          // ** FIX **: Use a default color if item.color_hex is null
           const colorHex = item.color_hex || '#CCCCCC'; // Default to gray
           const isWhite = colorHex.toUpperCase() === '#FFFFFF';
           const borderClass = isWhite ? 'border border-gray-400' : '';
 
-          const colorCircleHTML = item.color_hex ? `
+          // ** FIX **: Always render the color circle div
+          const colorCircleHTML = `
             <div class="mt-1 w-4 h-4 rounded-full ${borderClass}" style="background-color: ${colorHex};"></div>
-          ` : '';
+          `;
 
           const sizeAndColorHTML = size ? `
             <div class="flex flex-col items-end flex-shrink-0">
