@@ -188,71 +188,87 @@ function getRandomProxy() {
         let isClosing = false;
 
         async function checkItemStatus(item) {
-            if (item.sold) return;
+    if (item.sold) return;
 
-            let itemPage;
-            try {
-                itemPage = await context.newPage();
-                await itemPage.goto(item.link, { waitUntil: "domcontentloaded", timeout: 15000 });
-                await itemPage.waitForTimeout(1500);
+    let itemPage;
+    let contextCheck;
+    try {
+        const proxy = getRandomProxy();
+        console.log(`🔄 Checking "${item.name}" with proxy: ${proxy.host}:${proxy.port}`);
 
-                // ** NEW ** Log page content to see what the scraper sees
-                if (VERBOSE_LOGGING) {
-                    const pageTitle = await itemPage.title();
-                    console.log(`[VERBOSE] Page title for "${item.name}": ${pageTitle}`);
-                    if (pageTitle.toLowerCase().includes('are you a human')) {
-                        console.log(`[!!!] CAPTCHA detected for item: ${item.name}. This proxy may be blocked.`);
-                    }
-                }
+        contextCheck = await browser.newContext({
+            proxy: {
+                server: `http://${proxy.host}:${proxy.port}`,
+                username: proxy.user,
+                password: proxy.pass,
+            },
+            userAgent:
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
+            viewport: { width: 1280, height: 800 },
+        });
 
-                const soldElement = await itemPage.$('[data-testid="item-status--content"]');
-                const isSold = soldElement ? (await soldElement.innerText()).toLowerCase().includes("sold") : false;
+        itemPage = await contextCheck.newPage();
+        await itemPage.goto(item.link, { waitUntil: "domcontentloaded", timeout: 15000 });
+        await itemPage.waitForTimeout(1500);
 
-                if (isSold) {
-                    item.sold = true;
-                    item.soldAt = new Date();
-
-                    try {
-                        const imgEl = await itemPage.$('img[data-testid^="item-photo-"]');
-                        if (imgEl) item.image = await imgEl.getAttribute("src");
-                    } catch (err) { console.log("Failed to fetch image:", err.message); }
-
-                    try {
-                        const colorElement = await itemPage.$('div[data-testid="item-attributes-color"] div[itemprop="color"]');
-                        if (colorElement) {
-                            const colorName = await colorElement.innerText();
-                            item.color_name = colorName.trim();
-                            item.color_hex = mapColorToHex(item.color_name);
-                        }
-                    } catch (err) { console.log("Could not fetch color for:", item.name); }
-                    
-                    const sales = loadSales();
-                    sales.push(item);
-                    saveSales(sales);
-
-                    console.log(`✅ Item SOLD: ${item.name} | ${item.link} | ${item.price}`);
-
-                    await sendDiscordNotification({
-                        title: "🛑 Item SOLD",
-                        color: 0xff0000,
-                        fields: [
-                            { name: "Name", value: item.name, inline: false },
-                            { name: "Price", value: item.price, inline: true },
-                            { name: "Color", value: item.color_name || "N/A", inline: true},
-                            { name: "Link", value: item.link, inline: false },
-                        ],
-                        image: item.image ? { url: item.image } : undefined,
-                        timestamp: new Date().toISOString(),
-                    });
-                } else {
-                    console.log(`Item still available: ${item.name}`);
-                }
-            } catch (err) {
-                if (!isClosing) console.log(`Error checking item "${item.name}":`, err.message);
-            } finally {
-                if (itemPage) await itemPage.close().catch(() => {});
+        if (VERBOSE_LOGGING) {
+            const pageTitle = await itemPage.title();
+            console.log(`[VERBOSE] Page title for "${item.name}": ${pageTitle}`);
+            if (pageTitle.toLowerCase().includes("are you a human")) {
+                console.log(`[!!!] CAPTCHA detected for item: ${item.name}. Proxy may be blocked.`);
             }
         }
+
+        const soldElement = await itemPage.$('[data-testid="item-status--content"]');
+        const isSold = soldElement ? (await soldElement.innerText()).toLowerCase().includes("sold") : false;
+
+        if (isSold) {
+            item.sold = true;
+            item.soldAt = new Date();
+
+            try {
+                const imgEl = await itemPage.$('img[data-testid^="item-photo-"]');
+                if (imgEl) item.image = await imgEl.getAttribute("src");
+            } catch (err) { console.log("Failed to fetch image:", err.message); }
+
+            try {
+                const colorElement = await itemPage.$('div[data-testid="item-attributes-color"] div[itemprop="color"]');
+                if (colorElement) {
+                    const colorName = await colorElement.innerText();
+                    item.color_name = colorName.trim();
+                    item.color_hex = mapColorToHex(item.color_name);
+                }
+            } catch (err) { console.log("Could not fetch color for:", item.name); }
+            
+            const sales = loadSales();
+            sales.push(item);
+            saveSales(sales);
+
+            console.log(`✅ Item SOLD: ${item.name} | ${item.link} | ${item.price}`);
+
+            await sendDiscordNotification({
+                title: "🛑 Item SOLD",
+                color: 0xff0000,
+                fields: [
+                    { name: "Name", value: item.name, inline: false },
+                    { name: "Price", value: item.price, inline: true },
+                    { name: "Color", value: item.color_name || "N/A", inline: true},
+                    { name: "Link", value: item.link, inline: false },
+                ],
+                image: item.image ? { url: item.image } : undefined,
+                timestamp: new Date().toISOString(),
+            });
+        } else {
+            console.log(`Item still available: ${item.name}`);
+        }
+    } catch (err) {
+        if (!isClosing) console.log(`Error checking item "${item.name}":`, err.message);
+    } finally {
+        if (itemPage) await itemPage.close().catch(() => {});
+        if (contextCheck) await contextCheck.close().catch(() => {});
+    }
+}
+
 
         const interval = setInterval(async () => {
             if (!keepChecking || isClosing) return;
