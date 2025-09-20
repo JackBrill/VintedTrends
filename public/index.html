@@ -279,7 +279,8 @@
 
       async function fetchSales() {
         try {
-          const apiUrl = `${window.location.origin}/api/sales`;
+          // ** UPDATED ** Pointing to the specific IP address
+          const apiUrl = `http://148.230.122.43:3000/api/sales`;
           const res = await fetch(apiUrl);
           allSales = await res.json();
           renderSales();
