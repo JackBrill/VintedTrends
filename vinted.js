@@ -28,6 +28,30 @@ function saveSales(data) {
   fs.writeFileSync(SALES_FILE, JSON.stringify(data, null, 2));
 }
 
+/**
+ * Converts a color name (e.g., "Grey") into a hex code (e.g., "#808080").
+ * @param {string} colorName - The color name from Vinted.
+ * @returns {string|null} The corresponding hex code or null if not found.
+ */
+function mapColorToHex(colorName) {
+    if (!colorName) return null;
+    const firstColor = colorName.split(',')[0].trim().toLowerCase();
+    const colorMap = {
+        'black': '#000000', 'white': '#FFFFFF', 'grey': '#808080',
+        'gray': '#808080', 'silver': '#C0C0C0', 'red': '#FF0000',
+        'maroon': '#800000', 'orange': '#FFA500', 'yellow': '#FFFF00',
+        'olive': '#808000', 'lime': '#00FF00', 'green': '#008000',
+        'aqua': '#00FFFF', 'cyan': '#00FFFF', 'teal': '#008080',
+        'blue': '#0000FF', 'navy': '#000080', 'fuchsia': '#FF00FF',
+        'magenta': '#FF00FF', 'purple': '#800080', 'pink': '#FFC0CB',
+        'brown': '#A52A2A', 'beige': '#F5F5DC', 'khaki': '#F0E68C',
+        'gold': '#FFD700', 'cream': '#FFFDD0', 'burgundy': '#800020',
+        'mustard': '#FFDB58', 'turquoise': '#40E0D0',
+        'multicolour': '#CCCCCC' // A neutral default for multi-color items
+    };
+    return colorMap[firstColor] || null;
+}
+
 // Send Discord webhook
 async function sendDiscordNotification(embed) {
   try {
@@ -123,6 +147,8 @@ function getRandomProxy() {
               startedAt: new Date(),
               soldAt: null,
               image: null,
+              color_name: null,
+              color_hex: null,
             });
 
             console.log(`Tracking item: ${name} | ${link} | ${price}`);
@@ -131,7 +157,6 @@ function getRandomProxy() {
           }
         }
 
-        // Send "Scan Starting" embed
         const namesList = trackedItems.map((i) => i.name).join(", ");
         await sendDiscordNotification({
           title: "📡 Scan Starting",
@@ -170,31 +195,25 @@ function getRandomProxy() {
                 item.sold = true;
                 item.soldAt = new Date();
 
-                // Fetch image robustly
                 try {
                   const imgEl = await itemPage.$('img[data-testid^="item-photo-"]');
-                  if (imgEl) {
-                    item.image = await imgEl.getAttribute("src");
-                  }
-
-                  if (!item.image) {
-                    const figureImg = await itemPage.$('figure.item-photo img');
-                    if (figureImg) item.image = await figureImg.getAttribute("src");
-                  }
-
-                  if (!item.image) {
-                    const anyImg = await itemPage.$("img");
-                    if (anyImg) item.image = await anyImg.getAttribute("src");
-                  }
-
-                  if (!item.image)
-                    console.log("⚠️ Could not fetch image for:", item.name);
+                  if (imgEl) item.image = await imgEl.getAttribute("src");
                 } catch (err) {
                   console.log("Failed to fetch image:", err.message);
-                  item.image = null;
                 }
 
-                // Save to sales.json
+                // ** NEW ** Fetch color information
+                try {
+                    const colorElement = await itemPage.$('div[data-testid="item-attributes-color"] div[itemprop="color"]');
+                    if (colorElement) {
+                        const colorName = await colorElement.innerText();
+                        item.color_name = colorName.trim();
+                        item.color_hex = mapColorToHex(item.color_name);
+                    }
+                } catch (err) {
+                    console.log("Could not fetch color for:", item.name);
+                }
+                
                 const sales = loadSales();
                 sales.push(item);
                 saveSales(sales);
@@ -203,23 +222,13 @@ function getRandomProxy() {
                   `✅ Item SOLD: ${item.name} | ${item.link} | ${item.price}`
                 );
 
-                // Send SOLD embed
                 await sendDiscordNotification({
                   title: "🛑 Item SOLD",
                   color: 0xff0000,
                   fields: [
                     { name: "Name", value: item.name, inline: false },
                     { name: "Price", value: item.price, inline: true },
-                    {
-                      name: "Started Tracking",
-                      value: item.startedAt.toISOString(),
-                      inline: true,
-                    },
-                    {
-                      name: "Sold At",
-                      value: item.soldAt.toISOString(),
-                      inline: true,
-                    },
+                    { name: "Color", value: item.color_name || "N/A", inline: true},
                     { name: "Link", value: item.link, inline: false },
                   ],
                   image: item.image ? { url: item.image } : undefined,
@@ -236,17 +245,15 @@ function getRandomProxy() {
           }
         }, CHECK_INTERVAL);
 
-        // Wait batch duration
         await new Promise((resolve) => setTimeout(resolve, BATCH_DURATION));
 
-        // Stop checking and restart new batch
         console.log("Batch duration ended. Closing browser...");
         keepChecking = false;
         isClosing = true;
         clearInterval(interval);
         await context.close().catch(() => {});
         await browser.close().catch(() => {});
-        break; // break attempt loop
+        break; 
       } catch (err) {
         console.log("Navigation or extraction error:", err.message);
         attempt++;
