@@ -1,28 +1,44 @@
+// vinted.js
 import { chromium } from "playwright";
 import fs from "fs";
 import path from "path";
 import fetch from "node-fetch";
 import { PROXIES, DISCORD_WEBHOOK_URL, VINTED_CATALOG_URL } from "./config.js";
 
-const SALES_FILE = path.resolve("./sales.json");
-
+// Settings
 const BATCH_SIZE = 30; // number of items to track
-const CHECK_INTERVAL = 60 * 1000; // check every 60 seconds
-const BATCH_DURATION = 10 * 60 * 1000; // 10 minutes per batch
+const CHECK_INTERVAL = 60 * 1000; // 60 seconds
+const BATCH_DURATION = 10 * 60 * 1000; // 10 minutes
 
-// Load sales.json or create empty array
+// Path to sales data
+const SALES_FILE = path.join(process.cwd(), "sales.json");
+
+// Load sales data
 function loadSales() {
   if (!fs.existsSync(SALES_FILE)) return [];
   try {
-    return JSON.parse(fs.readFileSync(SALES_FILE, "utf-8"));
+    return JSON.parse(fs.readFileSync(SALES_FILE, "utf8"));
   } catch {
     return [];
   }
 }
 
-// Save to sales.json
+// Save sales data
 function saveSales(data) {
   fs.writeFileSync(SALES_FILE, JSON.stringify(data, null, 2));
+}
+
+// Send Discord webhook
+async function sendDiscordNotification(embed) {
+  try {
+    await fetch(DISCORD_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ embeds: [embed] }),
+    });
+  } catch (err) {
+    console.log("❌ Failed to send Discord webhook:", err.message);
+  }
 }
 
 // Get random proxy
@@ -32,20 +48,7 @@ function getRandomProxy() {
   return { host, port, user, pass };
 }
 
-// Send Discord embed
-async function sendDiscordNotification(embed) {
-  try {
-    await fetch(DISCORD_WEBHOOK_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ embeds: [embed] }),
-    });
-  } catch (err) {
-    console.log("❌ Failed Discord webhook:", err.message);
-  }
-}
-
-// Main scanning loop
+// === MAIN LOOP ===
 (async () => {
   while (true) {
     let attempt = 1;
@@ -80,7 +83,7 @@ async function sendDiscordNotification(embed) {
         await page.waitForTimeout(2000);
 
         items = await page.$$('div[data-testid="grid-item"]');
-        console.log(`Found ${items.length} items.`);
+        console.log(`Found ${items.length} items on the page.`);
 
         if (items.length < BATCH_SIZE) {
           console.log("Not enough items, retrying...");
@@ -88,6 +91,8 @@ async function sendDiscordNotification(embed) {
           await browser.close();
           continue;
         }
+
+        console.log(`Tracking first ${BATCH_SIZE} items...`);
 
         const trackedItems = [];
         for (const item of items.slice(0, BATCH_SIZE)) {
@@ -115,18 +120,18 @@ async function sendDiscordNotification(embed) {
               price,
               link,
               sold: false,
-              startedAt: new Date().toISOString(),
+              startedAt: new Date(),
               soldAt: null,
               image: null,
             });
 
-            console.log(`Tracking item: ${name} | ${price}`);
+            console.log(`Tracking item: ${name} | ${link} | ${price}`);
           } catch (err) {
             console.log("Skipped an item due to error:", err.message);
           }
         }
 
-        // Discord embed for batch starting
+        // Send "Scan Starting" embed
         const namesList = trackedItems.map((i) => i.name).join(", ");
         await sendDiscordNotification({
           title: "📡 Scan Starting",
@@ -136,16 +141,18 @@ async function sendDiscordNotification(embed) {
         });
 
         let keepChecking = true;
+        let isClosing = false;
+
         const interval = setInterval(async () => {
-          if (!keepChecking) return;
+          if (!keepChecking || isClosing) return;
 
           for (const item of trackedItems) {
+            if (!keepChecking || isClosing) return;
             if (item.sold) continue;
 
-            const itemPage = await context.newPage().catch(() => null);
-            if (!itemPage) continue;
-
+            let itemPage;
             try {
+              itemPage = await context.newPage();
               await itemPage.goto(item.link, {
                 waitUntil: "domcontentloaded",
                 timeout: 15000,
@@ -156,70 +163,78 @@ async function sendDiscordNotification(embed) {
                 '[data-testid="item-status--content"]'
               );
               const isSold = soldElement
-                ? (await soldElement.innerText())
-                    .toLowerCase()
-                    .includes("sold")
+                ? (await soldElement.innerText()).toLowerCase().includes("sold")
                 : false;
 
               if (isSold) {
-    item.sold = true;
-    item.soldAt = new Date();
+                item.sold = true;
+                item.soldAt = new Date();
 
-    // Get the item image
-    let imageUrl = null;
-    try {
-        const imgEl = await itemPage.$('img[data-testid$="--image--img"]');
-        imageUrl = imgEl ? await imgEl.getAttribute('src') : null;
-    } catch (err) {
-        console.log("Failed to get item image:", err.message);
-    }
-    item.image = imageUrl;
+                // Fetch image
+                try {
+                  const imgEl = await itemPage.$(
+                    'img[data-testid$="--image--img"]'
+                  );
+                  item.image = imgEl
+                    ? await imgEl.getAttribute("src")
+                    : null;
+                } catch (err) {
+                  console.log("Failed to fetch image:", err.message);
+                }
 
-    console.log(`✅ Item SOLD: ${item.name} | ${item.link} | ${item.price}`);
+                // Save to sales.json
+                const sales = loadSales();
+                sales.push(item);
+                saveSales(sales);
 
-    // Save to sales.json
-    const fs = require("fs");
-    let sales = [];
-    if (fs.existsSync("sales.json")) {
-        sales = JSON.parse(fs.readFileSync("sales.json", "utf-8"));
-    }
-    sales.push(item);
-    fs.writeFileSync("sales.json", JSON.stringify(sales, null, 2));
+                console.log(
+                  `✅ Item SOLD: ${item.name} | ${item.link} | ${item.price}`
+                );
 
-    // Send Discord embed
-    await sendDiscordNotification({
-        title: "🛑 Item SOLD",
-        color: 0xff0000,
-        fields: [
-            { name: "Name", value: item.name, inline: false },
-            { name: "Price", value: item.price, inline: true },
-            { name: "Started Tracking", value: item.startedAt.toISOString(), inline: true },
-            { name: "Sold At", value: item.soldAt.toISOString(), inline: true },
-            { name: "Link", value: item.link, inline: false },
-        ],
-        image: { url: item.image }, // embed image
-        timestamp: new Date().toISOString(),
-    });
-}
+                // Send SOLD embed
+                await sendDiscordNotification({
+                  title: "🛑 Item SOLD",
+                  color: 0xff0000,
+                  fields: [
+                    { name: "Name", value: item.name, inline: false },
+                    { name: "Price", value: item.price, inline: true },
+                    {
+                      name: "Started Tracking",
+                      value: item.startedAt.toISOString(),
+                      inline: true,
+                    },
+                    {
+                      name: "Sold At",
+                      value: item.soldAt.toISOString(),
+                      inline: true,
+                    },
+                    { name: "Link", value: item.link, inline: false },
+                  ],
+                  image: item.image ? { url: item.image } : undefined,
+                  timestamp: new Date().toISOString(),
+                });
               } else {
                 console.log(`Item still available: ${item.name}`);
               }
             } catch (err) {
-              console.log("Error checking item:", err.message);
+              if (!isClosing) console.log("Error checking item:", err.message);
             } finally {
-              await itemPage.close().catch(() => {});
+              if (itemPage) await itemPage.close().catch(() => {});
             }
           }
         }, CHECK_INTERVAL);
 
+        // Wait batch duration
         await new Promise((resolve) => setTimeout(resolve, BATCH_DURATION));
 
+        // Stop checking and restart new batch
         console.log("Batch duration ended. Closing browser...");
         keepChecking = false;
+        isClosing = true;
         clearInterval(interval);
         await context.close().catch(() => {});
         await browser.close().catch(() => {});
-        break;
+        break; // break attempt loop
       } catch (err) {
         console.log("Navigation or extraction error:", err.message);
         attempt++;
