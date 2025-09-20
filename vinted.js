@@ -9,7 +9,8 @@ import { PROXIES, DISCORD_WEBHOOK_URL, VINTED_CATALOG_URL } from "./config.js";
 const BATCH_SIZE = 90; // number of items to track
 const CHECK_INTERVAL = 60 * 1000; // 60 seconds
 const BATCH_DURATION = 5 * 60 * 1000; // 5 minutes
-const CONCURRENT_CHECKS = 20; // ** NEW ** Number of items to check at once
+const CONCURRENT_CHECKS = 20; // Number of items to check at once
+const VERBOSE_LOGGING = true; // ** NEW ** Set to true to see page content logs
 
 // Path to sales data
 const SALES_FILE = path.join(process.cwd(), "sales.json");
@@ -186,9 +187,8 @@ function getRandomProxy() {
         let keepChecking = true;
         let isClosing = false;
 
-        // ** NEW ** A separate function to check a single item's status
         async function checkItemStatus(item) {
-            if (item.sold) return; // Skip if already marked as sold
+            if (item.sold) return;
 
             let itemPage;
             try {
@@ -196,11 +196,20 @@ function getRandomProxy() {
                 await itemPage.goto(item.link, { waitUntil: "domcontentloaded", timeout: 15000 });
                 await itemPage.waitForTimeout(1500);
 
+                // ** NEW ** Log page content to see what the scraper sees
+                if (VERBOSE_LOGGING) {
+                    const pageTitle = await itemPage.title();
+                    console.log(`[VERBOSE] Page title for "${item.name}": ${pageTitle}`);
+                    if (pageTitle.toLowerCase().includes('are you a human')) {
+                        console.log(`[!!!] CAPTCHA detected for item: ${item.name}. This proxy may be blocked.`);
+                    }
+                }
+
                 const soldElement = await itemPage.$('[data-testid="item-status--content"]');
                 const isSold = soldElement ? (await soldElement.innerText()).toLowerCase().includes("sold") : false;
 
                 if (isSold) {
-                    item.sold = true; // Mark as sold to prevent re-checking
+                    item.sold = true;
                     item.soldAt = new Date();
 
                     try {
@@ -245,7 +254,6 @@ function getRandomProxy() {
             }
         }
 
-        // ** UPDATED ** Main checking logic now runs concurrently
         const interval = setInterval(async () => {
             if (!keepChecking || isClosing) return;
 
@@ -256,7 +264,6 @@ function getRandomProxy() {
             }
             console.log(`Starting check for ${itemsToCheck.length} items with concurrency of ${CONCURRENT_CHECKS}...`);
 
-            // Process items in batches
             for (let i = 0; i < itemsToCheck.length; i += CONCURRENT_CHECKS) {
                 const batch = itemsToCheck.slice(i, i + CONCURRENT_CHECKS);
                 const promises = batch.map(item => checkItemStatus(item));
