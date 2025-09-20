@@ -1,21 +1,22 @@
 // vinted.js
 import { chromium } from "playwright";
-import fetch from "node-fetch";
 import fs from "fs/promises";
+import fetch from "node-fetch";
 import { PROXIES, DISCORD_WEBHOOK_URL, VINTED_CATALOG_URL } from "./config.js";
 
-// SETTINGS
-const BATCH_SIZE = 30;
-const CHECK_INTERVAL = 60 * 1000;
-const BATCH_DURATION = 10 * 60 * 1000;
+// Settings
+const BATCH_SIZE = 30; // number of items to track
+const CHECK_INTERVAL = 60 * 1000; // check every 60 seconds
+const BATCH_DURATION = 10 * 60 * 1000; // 10 minutes per batch
 
-// HELPERS
+// Helper: get random proxy
 function getRandomProxy() {
   const proxyStr = PROXIES[Math.floor(Math.random() * PROXIES.length)];
   const [host, port, user, pass] = proxyStr.split(":");
   return { host, port, user, pass };
 }
 
+// Helper: send Discord webhook
 async function sendDiscordNotification(embed) {
   try {
     await fetch(DISCORD_WEBHOOK_URL, {
@@ -28,21 +29,27 @@ async function sendDiscordNotification(embed) {
   }
 }
 
+// Helper: save sold item to sales.json
 async function saveSale(item) {
   let sales = [];
   try {
     const data = await fs.readFile("sales.json", "utf8");
     sales = JSON.parse(data);
-  } catch {}
-  sales.push(item);
-  try {
-    await fs.writeFile("sales.json", JSON.stringify(sales, null, 2));
   } catch (err) {
-    console.log("❌ Failed to save sale:", err.message);
+    if (err.code !== "ENOENT") console.log("❌ Failed to read sales.json:", err.message);
+  }
+
+  sales.push(item);
+
+  try {
+    await fs.writeFile("sales.json", JSON.stringify(sales, null, 2), "utf8");
+    console.log(`💾 Sale saved to sales.json: ${item.name}`);
+  } catch (err) {
+    console.log("❌ Failed to write sales.json:", err.message);
   }
 }
 
-// MAIN LOOP
+// === MAIN LOOP ===
 (async () => {
   while (true) {
     let attempt = 1;
@@ -55,8 +62,13 @@ async function saveSale(item) {
 
       const browser = await chromium.launch({ headless: true });
       const context = await browser.newContext({
-        proxy: { server: `http://${proxy.host}:${proxy.port}`, username: proxy.user, password: proxy.pass },
-        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
+        proxy: {
+          server: `http://${proxy.host}:${proxy.port}`,
+          username: proxy.user,
+          password: proxy.pass,
+        },
+        userAgent:
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
         viewport: { width: 1280, height: 800 },
       });
 
@@ -64,70 +76,132 @@ async function saveSale(item) {
 
       try {
         console.log("Navigating to Vinted catalog...");
-        const response = await page.goto(VINTED_CATALOG_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
+        const response = await page.goto(VINTED_CATALOG_URL, {
+          waitUntil: "domcontentloaded",
+          timeout: 30000,
+        });
         console.log(`Response status: ${response.status()}`);
         await page.waitForTimeout(2000);
 
         items = await page.$$('div[data-testid="grid-item"]');
         console.log(`Found ${items.length} items on the page.`);
+
         if (items.length < BATCH_SIZE) {
+          console.log("Not enough items, retrying...");
           attempt++;
           await browser.close();
           continue;
         }
 
+        console.log(`Tracking first ${BATCH_SIZE} items...`);
         const trackedItems = [];
+
         for (const item of items.slice(0, BATCH_SIZE)) {
           try {
-            const name = await item.$eval('[data-testid$="--description-title"]', el => el.innerText.trim());
-            const subtitle = await item.$eval('[data-testid$="--description-subtitle"]', el => el.innerText.trim());
-            const price = await item.$eval('[data-testid$="--price-text"]', el => el.innerText.trim());
-            const link = await item.$eval('a[data-testid$="--overlay-link"]', el => el.href);
+            const name = await item.$eval(
+              '[data-testid$="--description-title"]',
+              (el) => el.innerText.trim()
+            );
+            const subtitle = await item.$eval(
+              '[data-testid$="--description-subtitle"]',
+              (el) => el.innerText.trim()
+            );
+            const price = await item.$eval(
+              '[data-testid$="--price-text"]',
+              (el) => el.innerText.trim()
+            );
+            const link = await item.$eval(
+              'a[data-testid$="--overlay-link"]',
+              (el) => el.href
+            );
 
-            trackedItems.push({ name, subtitle, price, link, sold: false, startedAt: new Date(), soldAt: null });
+            trackedItems.push({
+              name,
+              subtitle,
+              price,
+              link,
+              sold: false,
+              startedAt: new Date(),
+              soldAt: null,
+            });
             console.log(`Tracking item: ${name} | ${link} | ${price}`);
-          } catch {}
+          } catch (err) {
+            console.log("Skipped an item due to error:", err.message);
+          }
         }
 
         // Send "Scan Starting" embed
-        await sendDiscordNotification({ title: "📡 Scan Starting", description: trackedItems.map(i => i.name).join(", "), color: 0x3498db });
+        const namesList = trackedItems.map((i) => i.name).join(", ");
+        await sendDiscordNotification({
+          title: "📡 Scan Starting",
+          description: namesList || "No items",
+          color: 0x3498db,
+          timestamp: new Date().toISOString(),
+        });
 
         let keepChecking = true;
+        let isClosing = false;
 
         const interval = setInterval(async () => {
-          if (!keepChecking) return;
+          if (!keepChecking || isClosing) return;
 
           for (const item of trackedItems) {
+            if (!keepChecking || isClosing) return;
             if (item.sold) continue;
 
             const itemPage = await context.newPage().catch(() => null);
             if (!itemPage) return;
 
             try {
-              await itemPage.goto(item.link, { waitUntil: "domcontentloaded", timeout: 15000 });
+              await itemPage.goto(item.link, {
+                waitUntil: "domcontentloaded",
+                timeout: 15000,
+              });
               await itemPage.waitForTimeout(1500);
-              const soldElement = await itemPage.$('[data-testid="item-status--content"]');
-              const isSold = soldElement ? (await soldElement.innerText()).toLowerCase().includes("sold") : false;
+
+              const soldElement = await itemPage.$(
+                '[data-testid="item-status--content"]'
+              );
+              const isSold = soldElement
+                ? (await soldElement.innerText())
+                    .toLowerCase()
+                    .includes("sold")
+                : false;
 
               if (isSold) {
                 item.sold = true;
                 item.soldAt = new Date();
 
                 // Grab image only when sold
-                const imgEl = await itemPage.$('img[data-testid$="--image--img"]');
+                const imgEl = await itemPage.$(
+                  'img[data-testid$="--image--img"]'
+                );
                 const img = imgEl ? await imgEl.getAttribute("src") : "";
 
                 const saleData = { ...item, image: img };
                 await saveSale(saleData);
 
+                console.log(
+                  `✅ Item SOLD: ${item.name} | ${item.link} | ${item.price}`
+                );
+
+                // Send SOLD embed
                 await sendDiscordNotification({
                   title: "🛑 Item SOLD",
                   color: 0xff0000,
                   fields: [
                     { name: "Name", value: item.name, inline: false },
                     { name: "Price", value: item.price, inline: true },
-                    { name: "Started Tracking", value: item.startedAt.toISOString(), inline: true },
-                    { name: "Sold At", value: item.soldAt.toISOString(), inline: true },
+                    {
+                      name: "Started Tracking",
+                      value: item.startedAt.toISOString(),
+                      inline: true,
+                    },
+                    {
+                      name: "Sold At",
+                      value: item.soldAt.toISOString(),
+                      inline: true,
+                    },
                     { name: "Link", value: item.link, inline: false },
                   ],
                   timestamp: new Date().toISOString(),
@@ -136,20 +210,24 @@ async function saveSale(item) {
                 console.log(`Item still available: ${item.name}`);
               }
             } catch (err) {
-              console.log("Error checking item:", err.message);
+              if (!isClosing) console.log("Error checking item:", err.message);
             } finally {
               await itemPage.close().catch(() => {});
             }
           }
         }, CHECK_INTERVAL);
 
-        await new Promise(resolve => setTimeout(resolve, BATCH_DURATION));
+        // Wait batch duration
+        await new Promise((resolve) => setTimeout(resolve, BATCH_DURATION));
+
+        // Stop checking and restart new batch
         console.log("Batch duration ended. Closing browser...");
         keepChecking = false;
+        isClosing = true;
         clearInterval(interval);
         await context.close().catch(() => {});
         await browser.close().catch(() => {});
-        break;
+        break; // break out of attempt loop
 
       } catch (err) {
         console.log("Navigation or extraction error:", err.message);
@@ -159,7 +237,9 @@ async function saveSale(item) {
     }
 
     if (items.length < BATCH_SIZE) {
-      console.log("Failed to load enough items. Restarting main loop...");
+      console.log(
+        "Failed to load enough items after multiple attempts. Restarting main loop..."
+      );
     }
   }
 })();
