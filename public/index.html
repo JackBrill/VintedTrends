@@ -4,30 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vinted Trends - Live Sales Dashboard</title>
-    <meta name="description" content="A live dashboard tracking the latest sold items on Vinted. Discover trends in second-hand fashion, vintage clothing, and more." />
+    <meta name="description" content="A live dashboard tracking the latest sold items on Vinted." />
     <meta name="author" content="VintedTrends Project" />
-
-    <meta property="og:title" content="Vinted Trends - Live Sales Dashboard" />
-    <meta property="og:description" content="Live tracker for recently sold items on Vinted." />
-    <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
-    
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="output.css" />
   </head>
 
-  <body class="bg-background text-foreground">
-    <header class="border-b bg-card">
-      <div class="container mx-auto p-4 flex justify-between items-center">
-        <div>
-            <h1 class="text-2xl font-bold text-primary">Vinted Trends Dashboard</h1>
-            <p class="text-muted-foreground">Live tracker for recently sold items.</p>
-        </div>
+  <body class="bg-secondary">
+    <main class="container mx-auto p-4 md:p-6">
+      <!-- Sales items will be injected here by main.js -->
+      <div id="salesContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
       </div>
-    </header>
-
-    <main class="container mx-auto p-4">
-      <div id="salesContainer" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-        </div>
     </main>
     
     <script src="main.js" defer></script>
