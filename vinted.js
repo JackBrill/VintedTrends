@@ -6,9 +6,10 @@ import fetch from "node-fetch";
 import { PROXIES, DISCORD_WEBHOOK_URL, VINTED_CATALOG_URL } from "./config.js";
 
 // Settings
-const BATCH_SIZE = 75; // number of items to track
+const BATCH_SIZE = 50; // number of items to track
 const CHECK_INTERVAL = 60 * 1000; // 60 seconds
 const BATCH_DURATION = 5 * 60 * 1000; // 5 minutes
+const CONCURRENT_CHECKS = 10; // ** NEW ** Number of items to check at once
 
 // Path to sales data
 const SALES_FILE = path.join(process.cwd(), "sales.json");
@@ -35,10 +36,7 @@ function saveSales(data) {
  */
 function mapColorToHex(colorName) {
     if (!colorName) return null;
-    // Takes the first color if multiple are listed (e.g., "Grey, Black")
     const firstColor = colorName.split(',')[0].trim().toLowerCase();
-    
-    // ** NEW ** Greatly expanded color map for better matching
     const colorMap = {
         'black': '#000000', 'white': '#FFFFFF', 'grey': '#808080',
         'gray': '#808080', 'silver': '#C0C0C0', 'red': '#FF0000',
@@ -67,9 +65,7 @@ function mapColorToHex(colorName) {
         'floral': '#A9A9A9', 'animal print': '#A9A9A9', 'striped': '#A9A9A9',
         'camouflage': '#A9A9A9', 'geometric': '#A9A9A9', 'abstract': '#A9A9A9'
     };
-
     const hexValue = colorMap[firstColor] || null;
-    console.log(`Mapping color: '${firstColor}' -> ${hexValue}`); // For debugging
     return hexValue;
 }
 
@@ -190,82 +186,87 @@ function getRandomProxy() {
         let keepChecking = true;
         let isClosing = false;
 
-        const interval = setInterval(async () => {
-          if (!keepChecking || isClosing) return;
-
-          for (const item of trackedItems) {
-            if (!keepChecking || isClosing) return;
-            if (item.sold) continue;
+        // ** NEW ** A separate function to check a single item's status
+        async function checkItemStatus(item) {
+            if (item.sold) return; // Skip if already marked as sold
 
             let itemPage;
             try {
-              itemPage = await context.newPage();
-              await itemPage.goto(item.link, {
-                waitUntil: "domcontentloaded",
-                timeout: 15000,
-              });
-              await itemPage.waitForTimeout(1500);
+                itemPage = await context.newPage();
+                await itemPage.goto(item.link, { waitUntil: "domcontentloaded", timeout: 15000 });
+                await itemPage.waitForTimeout(1500);
 
-              const soldElement = await itemPage.$(
-                '[data-testid="item-status--content"]'
-              );
-              const isSold = soldElement
-                ? (await soldElement.innerText()).toLowerCase().includes("sold")
-                : false;
+                const soldElement = await itemPage.$('[data-testid="item-status--content"]');
+                const isSold = soldElement ? (await soldElement.innerText()).toLowerCase().includes("sold") : false;
 
-              if (isSold) {
-                item.sold = true;
-                item.soldAt = new Date();
+                if (isSold) {
+                    item.sold = true; // Mark as sold to prevent re-checking
+                    item.soldAt = new Date();
 
-                try {
-                  const imgEl = await itemPage.$('img[data-testid^="item-photo-"]');
-                  if (imgEl) item.image = await imgEl.getAttribute("src");
-                } catch (err) {
-                  console.log("Failed to fetch image:", err.message);
+                    try {
+                        const imgEl = await itemPage.$('img[data-testid^="item-photo-"]');
+                        if (imgEl) item.image = await imgEl.getAttribute("src");
+                    } catch (err) { console.log("Failed to fetch image:", err.message); }
+
+                    try {
+                        const colorElement = await itemPage.$('div[data-testid="item-attributes-color"] div[itemprop="color"]');
+                        if (colorElement) {
+                            const colorName = await colorElement.innerText();
+                            item.color_name = colorName.trim();
+                            item.color_hex = mapColorToHex(item.color_name);
+                        }
+                    } catch (err) { console.log("Could not fetch color for:", item.name); }
+                    
+                    const sales = loadSales();
+                    sales.push(item);
+                    saveSales(sales);
+
+                    console.log(`✅ Item SOLD: ${item.name} | ${item.link} | ${item.price}`);
+
+                    await sendDiscordNotification({
+                        title: "🛑 Item SOLD",
+                        color: 0xff0000,
+                        fields: [
+                            { name: "Name", value: item.name, inline: false },
+                            { name: "Price", value: item.price, inline: true },
+                            { name: "Color", value: item.color_name || "N/A", inline: true},
+                            { name: "Link", value: item.link, inline: false },
+                        ],
+                        image: item.image ? { url: item.image } : undefined,
+                        timestamp: new Date().toISOString(),
+                    });
+                } else {
+                    console.log(`Item still available: ${item.name}`);
                 }
-
-                // Fetch color information
-                try {
-                    const colorElement = await itemPage.$('div[data-testid="item-attributes-color"] div[itemprop="color"]');
-                    if (colorElement) {
-                        const colorName = await colorElement.innerText();
-                        item.color_name = colorName.trim();
-                        item.color_hex = mapColorToHex(item.color_name);
-                    }
-                } catch (err) {
-                    console.log("Could not fetch color for:", item.name);
-                }
-                
-                const sales = loadSales();
-                sales.push(item);
-                saveSales(sales);
-
-                console.log(
-                  `✅ Item SOLD: ${item.name} | ${item.link} | ${item.price}`
-                );
-
-                await sendDiscordNotification({
-                  title: "🛑 Item SOLD",
-                  color: 0xff0000,
-                  fields: [
-                    { name: "Name", value: item.name, inline: false },
-                    { name: "Price", value: item.price, inline: true },
-                    { name: "Color", value: item.color_name || "N/A", inline: true},
-                    { name: "Link", value: item.link, inline: false },
-                  ],
-                  image: item.image ? { url: item.image } : undefined,
-                  timestamp: new Date().toISOString(),
-                });
-              } else {
-                console.log(`Item still available: ${item.name}`);
-              }
             } catch (err) {
-              if (!isClosing) console.log("Error checking item:", err.message);
+                if (!isClosing) console.log(`Error checking item "${item.name}":`, err.message);
             } finally {
-              if (itemPage) await itemPage.close().catch(() => {});
+                if (itemPage) await itemPage.close().catch(() => {});
             }
-          }
+        }
+
+        // ** UPDATED ** Main checking logic now runs concurrently
+        const interval = setInterval(async () => {
+            if (!keepChecking || isClosing) return;
+
+            const itemsToCheck = trackedItems.filter(p => !p.sold);
+            if (itemsToCheck.length === 0) {
+                console.log("All tracked items have been sold. Nothing to check.");
+                return;
+            }
+            console.log(`Starting check for ${itemsToCheck.length} items with concurrency of ${CONCURRENT_CHECKS}...`);
+
+            // Process items in batches
+            for (let i = 0; i < itemsToCheck.length; i += CONCURRENT_CHECKS) {
+                const batch = itemsToCheck.slice(i, i + CONCURRENT_CHECKS);
+                const promises = batch.map(item => checkItemStatus(item));
+                await Promise.all(promises);
+                console.log(`Completed a batch of ${batch.length} checks.`);
+            }
+
+            console.log("Finished full check cycle.");
         }, CHECK_INTERVAL);
+
 
         await new Promise((resolve) => setTimeout(resolve, BATCH_DURATION));
 
