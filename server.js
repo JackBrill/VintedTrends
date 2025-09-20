@@ -1,35 +1,18 @@
 // server.js
 import express from "express";
-import { createServer } from "http";
-import { Server } from "socket.io";
-import path from "path";
-import { fileURLToPath } from "url";
-import { notifier } from "./vinted.js";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { getSales, loadSales } from "./salesData.js";
 
 const app = express();
-const server = createServer(app);
-const io = new Server(server);
+const PORT = 3000;
 
-const soldItemsHistory = [];
+loadSales();
 
-notifier.on("scan_start", (items) => {
-  io.emit("scan_start", items);
+app.get("/api/sales", (req, res) => {
+  res.json(getSales());
 });
 
-notifier.on("item_sold", (item) => {
-  soldItemsHistory.push(item);
-  io.emit("item_sold", item);
+app.use(express.static("public"));
+
+app.listen(PORT, () => {
+  console.log(`✅ Dashboard running at http://localhost:${PORT}`);
 });
-
-app.set("view engine", "ejs");
-app.set("views", path.join(__dirname, "views"));
-app.use(express.static(path.join(__dirname, "public")));
-
-app.get("/", (req, res) => res.render("dashboard"));
-app.get("/api/sold", (req, res) => res.json(soldItemsHistory));
-
-server.listen(3000, () =>
-  console.log("✅ Dashboard running at http://localhost:3000")
-);
