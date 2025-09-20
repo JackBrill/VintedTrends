@@ -2,17 +2,17 @@
 import fs from "fs";
 const FILE_PATH = "./salesData.json";
 
-let sales = [];
-if (fs.existsSync(FILE_PATH)) {
-  sales = JSON.parse(fs.readFileSync(FILE_PATH, "utf-8"));
+export function readSales() {
+  try {
+    const data = fs.readFileSync(FILE_PATH, "utf-8");
+    return JSON.parse(data);
+  } catch {
+    return [];
+  }
 }
 
-export default {
-  add(item) {
-    sales.push(item);
-    fs.writeFileSync(FILE_PATH, JSON.stringify(sales, null, 2));
-  },
-  getAll() {
-    return sales;
-  }
-};
+export function addSale(item) {
+  const sales = readSales();
+  sales.push(item);
+  fs.writeFileSync(FILE_PATH, JSON.stringify(sales, null, 2));
+}
