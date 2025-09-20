@@ -102,25 +102,31 @@
         return null;
       }
 
+      /**
+       * Extracts the first letter of the size from the item's subtitle.
+       * E.g., "S · New without tags" -> "S"
+       */
+      function extractSize(subtitle) {
+        if (!subtitle || typeof subtitle !== 'string') {
+          return null;
+        }
+        const sizePart = subtitle.split('·')[0].trim();
+        return sizePart ? sizePart.charAt(0).toUpperCase() : null;
+      }
+
       function renderSales() {
         if (!allSales || allSales.length === 0) {
           salesContainer.innerHTML = `<p class="col-span-full text-center text-muted-foreground">No sales data found. Waiting for new sales...</p>`;
           return;
         }
 
-        // Sorting logic
         const sortedSales = [...allSales].sort((a, b) => {
             const priceA = parseFloat(a.price.replace(/[^0-9.-]+/g, ""));
             const priceB = parseFloat(b.price.replace(/[^0-9.-]+/g, ""));
-
             switch (currentSort) {
-                case 'price_asc':
-                    return priceA - priceB;
-                case 'price_desc':
-                    return priceB - priceA;
-                case 'newest':
-                default:
-                    return new Date(b.soldAt) - new Date(a.soldAt);
+                case 'price_asc': return priceA - priceB;
+                case 'price_desc': return priceB - priceA;
+                case 'newest': default: return new Date(b.soldAt) - new Date(a.soldAt);
             }
         });
 
@@ -128,10 +134,22 @@
           const saleSpeed = getSaleSpeed(item);
           const saleSpeedHTML = saleSpeed ? `<p class="text-xs text-muted-foreground mt-1">Sold in: ${saleSpeed}</p>` : '';
 
+          const size = extractSize(item.subtitle);
+          // TODO: The item.color property needs to be added to your sales.json data.
+          // For now, it uses a default gray color.
+          const color = item.color || 'bg-gray-200';
+          
+          const sizeIndicatorHTML = size ? `
+            <div class="absolute top-2 right-2 flex items-center justify-center w-7 h-7 ${color} rounded-full border-2 border-white shadow">
+              <span class="text-xs font-bold text-gray-800">${size}</span>
+            </div>
+          ` : '';
+
           return `
             <div class="bg-card text-card-foreground border rounded-lg overflow-hidden shadow flex flex-col">
-              <a href="${item.link}" target="_blank" rel="noopener noreferrer" class="block">
+              <a href="${item.link}" target="_blank" rel="noopener noreferrer" class="block relative">
                 <img src="${item.image || 'https://via.placeholder.com/300'}" alt="${item.name}" class="w-full h-56 object-cover" loading="lazy" />
+                ${sizeIndicatorHTML}
               </a>
               <div class="p-3 flex flex-col flex-grow">
                 <p class="font-semibold text-sm">${item.name}</p>
@@ -149,7 +167,6 @@
 
       async function fetchSales() {
         try {
-          // FIX: Dynamically create the full API URL
           const apiUrl = `${window.location.origin}/api/sales`;
           const res = await fetch(apiUrl);
           allSales = await res.json();
@@ -160,10 +177,7 @@
         }
       }
 
-      // Initial fetch and render
       fetchSales();
-
-      // Refresh data every 5 seconds to get new sales
       setInterval(fetchSales, 5000);
     </script>
   </body>
