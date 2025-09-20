@@ -266,7 +266,7 @@ function getRandomProxy() {
         await context.close().catch(() => {});
         await browser.close().catch(() => {});
         break; 
-      } catch (err)
+      } catch (err) { // <<< FIX: Added the missing opening brace here
         console.log("Navigation or extraction error:", err.message);
         attempt++;
         await browser.close().catch(() => {});
