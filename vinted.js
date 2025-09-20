@@ -38,7 +38,7 @@ function mapColorToHex(colorName) {
     // Takes the first color if multiple are listed (e.g., "Grey, Black")
     const firstColor = colorName.split(',')[0].trim().toLowerCase();
     
-    // ** UPDATED ** Expanded color map
+    // Expanded color map
     const colorMap = {
         'black': '#000000', 'white': '#FFFFFF', 'grey': '#808080',
         'gray': '#808080', 'silver': '#C0C0C0', 'red': '#FF0000',
@@ -64,6 +64,7 @@ function mapColorToHex(colorName) {
     console.log(`Mapping color: '${firstColor}' -> ${hexValue}`); // For debugging
     return hexValue;
 }
+
 
 // Send Discord webhook
 async function sendDiscordNotification(embed) {
@@ -101,7 +102,7 @@ function getRandomProxy() {
         proxy: {
           server: `http://${proxy.host}:${proxy.port}`,
           username: proxy.user,
-          password: pass,
+          password: proxy.pass,
         },
         userAgent:
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
