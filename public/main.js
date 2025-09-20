@@ -45,22 +45,27 @@ async function fetchSales() {
 
     salesContainer.innerHTML = sortedSales.map(item => {
       const saleSpeed = getSaleSpeed(item);
-      
-      const subtitleHTML = item.subtitle ? `<p class="text-xs text-muted-foreground truncate mb-2">${item.subtitle}</p>` : '';
-      const saleSpeedHTML = saleSpeed ? `<p class="text-sm text-muted-foreground mb-4">Sold in: <span class="font-medium">${saleSpeed}</span></p>` : '';
+      const saleInfoHTML = saleSpeed ?
+        `<p class="text-xs text-muted-foreground">Sold in ${saleSpeed}</p>` :
+        `<p class="text-xs text-muted-foreground">&nbsp;</p>`; // Use non-breaking space for consistent height
 
       return `
-      <div class="bg-card text-card-foreground border rounded-lg overflow-hidden shadow-lg flex flex-col transition-transform duration-300 hover:scale-105">
+      <div class="bg-card text-card-foreground flex flex-col">
+        <!-- Image -->
         <a href="${item.link}" target="_blank" rel="noopener noreferrer">
-          <img src="${item.image || 'https://via.placeholder.com/250'}" alt="${item.name}" class="w-full h-64 object-cover" loading="lazy" />
+          <img src="${item.image || 'https://placehold.co/400x600/f1f5f9/94a3b8?text=Sold'}" alt="${item.name}" class="w-full h-auto aspect-[3/4] object-cover" loading="lazy" />
         </a>
-        <div class="p-4 flex flex-col flex-grow">
-          <h3 class="font-semibold text-lg mb-1">${item.name}</h3>
-          ${subtitleHTML}
-          <div class="flex-grow"></div>
-          <p class="text-2xl font-bold mt-2 text-primary">${item.price}</p>
-          ${saleSpeedHTML}
-          <a href="${item.link}" target="_blank" rel="noopener noreferrer" class="mt-auto text-center bg-primary text-primary-foreground font-bold py-2 px-4 rounded-md hover:bg-vinted-teal-light transition-colors">
+        
+        <!-- Content -->
+        <div class="p-2 flex-grow">
+          ${saleInfoHTML}
+          <p class="text-base font-semibold mt-1">${item.price}</p>
+        </div>
+        
+        <!-- Button -->
+        <div class="px-2 pb-2">
+          <a href="${item.link}" target="_blank" rel="noopener noreferrer" 
+             class="block w-full text-center text-sm font-bold text-primary border border-primary rounded-md py-1.5 hover:bg-primary hover:text-primary-foreground transition-colors duration-200">
             View
           </a>
         </div>
