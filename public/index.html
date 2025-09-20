@@ -82,44 +82,6 @@
       const salesContainer = document.getElementById("salesContainer");
       let allSales = [];
 
-      /**
-       * ** NEW ** This function now lives in the dashboard.
-       * It converts a color name (e.g., "Lilac") into a hex code.
-       */
-      function mapColorToHex(colorName) {
-          if (!colorName) return null;
-          const firstColor = colorName.split(',')[0].trim().toLowerCase();
-          const colorMap = {
-              'black': '#000000', 'white': '#FFFFFF', 'grey': '#808080',
-              'gray': '#808080', 'silver': '#C0C0C0', 'red': '#FF0000',
-              'maroon': '#800000', 'orange': '#FFA500', 'yellow': '#FFFF00',
-              'olive': '#808000', 'lime': '#00FF00', 'green': '#008000',
-              'aqua': '#00FFFF', 'cyan': '#00FFFF', 'teal': '#008080',
-              'blue': '#0000FF', 'navy': '#000080', 'fuchsia': '#FF00FF',
-              'magenta': '#FF00FF', 'purple': '#800080', 'pink': '#FFC0CB',
-              'brown': '#A52A2A', 'beige': '#F5F5DC', 'khaki': '#F0E68C',
-              'gold': '#FFD700', 'cream': '#FFFDD0', 'burgundy': '#800020',
-              'mustard': '#FFDB58', 'turquoise': '#40E0D0', 'indigo': '#4B0082',
-              'violet': '#EE82EE', 'plum': '#DDA0DD', 'orchid': '#DA70D6',
-              'salmon': '#FA8072', 'coral': '#FF7F50', 'chocolate': '#D2691E',
-              'tan': '#D2B48C', 'ivory': '#FFFFF0', 'honeydew': '#F0FFF0',
-              'azure': '#F0FFFF', 'lavender': '#E6E6FA', 'rose': '#FFE4E1',
-              'lilac': '#C8A2C8', 'mint': '#98FF98', 'peach': '#FFDAB9',
-              'sky blue': '#87CEEB', 'royal blue': '#4169E1', 'cobalt': '#0047AB',
-              'denim': '#1560BD', 'emerald': '#50C878', 'mint green': '#98FF98',
-              'lime green': '#32CD32', 'forest green': '#228B22', 'olive green': '#6B8E23',
-              'mustard yellow': '#FFDB58', 'lemon': '#FFFACD', 'coral pink': '#F88379',
-              'hot pink': '#FF69B4', 'baby pink': '#F4C2C2', 'ruby': '#E0115F',
-              'scarlet': '#FF2400', 'wine': '#722F37', 'terracotta': '#E2725B',
-              'bronze': '#CD7F32', 'light blue': '#ADD8E6', 'dark green': '#006400', 
-              'light grey': '#D3D3D3', 'dark blue': '#00008B', 'light green': '#90EE90', 
-              'dark grey': '#A9A9A9', 'multicolour': '#CCCCCC', 'check': '#A9A9A9',
-              'floral': '#A9A9A9', 'animal print': '#A9A9A9', 'striped': '#A9A9A9',
-              'camouflage': '#A9A9A9', 'geometric': '#A9A9A9', 'abstract': '#A9A9A9'
-          };
-          return colorMap[firstColor] || null;
-      }
-
       function getSaleSpeed(item) {
         if (item.startedAt && item.soldAt) {
           const startTime = new Date(item.startedAt);
@@ -130,15 +92,44 @@
           const diffSecs = Math.floor((diffMs % 60000) / 1000);
           return `${diffMins}m ${diffSecs}s`;
         }
+        if (typeof item.speed === 'number') {
+          const totalSeconds = Math.floor(item.speed);
+          const diffMins = Math.floor(totalSeconds / 60);
+          const diffSecs = totalSeconds % 60;
+          return `${diffMins}m ${diffSecs}s`;
+        }
         return null;
       }
 
       function extractSize(subtitle) {
-        if (!subtitle || typeof subtitle !== 'string') {
-          return null;
-        }
+        if (!subtitle || typeof subtitle !== 'string') return null;
         const sizePart = subtitle.split('·')[0].trim();
         return sizePart ? sizePart.toUpperCase() : null;
+      }
+
+      function mapColorNameToHex(colorName) {
+        if (!colorName) return null;
+        const firstColor = colorName.split(',')[0].trim().toLowerCase();
+        const colorMap = {
+            'black': '#000000', 'white': '#FFFFFF', 'grey': '#808080', 'gray': '#808080', 'silver': '#C0C0C0', 
+            'red': '#FF0000', 'maroon': '#800000', 'orange': '#FFA500', 'yellow': '#FFFF00', 'olive': '#808000', 
+            'lime': '#00FF00', 'green': '#008000', 'aqua': '#00FFFF', 'cyan': '#00FFFF', 'teal': '#008080', 
+            'blue': '#0000FF', 'navy': '#000080', 'fuchsia': '#FF00FF', 'magenta': '#FF00FF', 'purple': '#800080', 
+            'pink': '#FFC0CB', 'brown': '#A52A2A', 'beige': '#F5F5DC', 'khaki': '#F0E68C', 'gold': '#FFD700', 
+            'cream': '#FFFDD0', 'burgundy': '#800020', 'mustard': '#FFDB58', 'turquoise': '#40E0D0', 'indigo': '#4B0082',
+            'violet': '#EE82EE', 'plum': '#DDA0DD', 'orchid': '#DA70D6', 'salmon': '#FA8072', 'coral': '#FF7F50', 
+            'chocolate': '#D2691E', 'tan': '#D2B48C', 'ivory': '#FFFFF0', 'honeydew': '#F0FFF0', 'azure': '#F0FFFF', 
+            'lavender': '#E6E6FA', 'rose': '#FFE4E1', 'lilac': '#C8A2C8', 'mint': '#98FF98', 'peach': '#FFDAB9',
+            'sky blue': '#87CEEB', 'royal blue': '#4169E1', 'cobalt': '#0047AB', 'denim': '#1560BD', 'emerald': '#50C878', 
+            'mint green': '#98FF98', 'lime green': '#32CD32', 'forest green': '#228B22', 'olive green': '#6B8E23',
+            'mustard yellow': '#FFDB58', 'lemon': '#FFFACD', 'coral pink': '#F88379', 'hot pink': '#FF69B4', 
+            'baby pink': '#F4C2C2', 'ruby': '#E0115F', 'scarlet': '#FF2400', 'wine': '#722F37', 'terracotta': '#E2725B',
+            'bronze': '#CD7F32', 'light blue': '#ADD8E6', 'dark green': '#006400', 'light grey': '#D3D3D3',
+            'dark blue': '#00008B', 'light green': '#90EE90', 'dark grey': '#A9A9A9', 'multicolour': '#CCCCCC', 
+            'check': '#A9A9A9', 'floral': '#A9A9A9', 'animal print': '#A9A9A9', 'striped': '#A9A9A9',
+            'camouflage': '#A9A9A9', 'geometric': '#A9A9A9', 'abstract': '#A9A9A9'
+        };
+        return colorMap[firstColor] || null;
       }
 
       function renderSales() {
@@ -155,24 +146,22 @@
           
           const size = extractSize(item.subtitle);
           
-          // ** UPDATED LOGIC **
-          // Now we generate the hex code here, from the color_name.
-          // This works even if item.color_hex from sales.json is null.
-          const colorHex = mapColorToHex(item.color_name);
-          const isWhite = colorHex && colorHex.toUpperCase() === '#FFFFFF';
+          const colorHex = mapColorNameToHex(item.color_name) || '#CCCCCC'; // Default to gray if no match
+          const isWhite = colorHex.toUpperCase() === '#FFFFFF';
           const borderClass = isWhite ? 'border border-gray-400' : '';
+          
+          // Removed top margin from circle
+          const colorCircleHTML = `
+            <div class="w-4 h-4 rounded-full ${borderClass}" style="background-color: ${colorHex};"></div>
+          `;
 
-          const colorCircleHTML = colorHex ? `
-            <div class="mt-1 w-4 h-4 rounded-full ${borderClass}" style="background-color: ${colorHex};"></div>
-          ` : '';
-
+          // ** UPDATED ** Changed flex-col to flex-row, added items-center and a gap
           const sizeAndColorHTML = size ? `
-            <div class="flex flex-col items-end flex-shrink-0">
-                <span class="text-xs font-bold text-gray-800">${size}</span>
-                ${colorCircleHTML}
+            <div class="flex items-center gap-1.5 flex-shrink-0">
+              <span class="text-xs font-bold text-gray-800">${size}</span>
+              ${colorCircleHTML}
             </div>
           ` : '';
-
 
           return `
             <div class="bg-card text-card-foreground border rounded-lg overflow-hidden shadow flex flex-col">
