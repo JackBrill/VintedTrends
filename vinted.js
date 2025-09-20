@@ -38,7 +38,7 @@ function mapColorToHex(colorName) {
     // Takes the first color if multiple are listed (e.g., "Grey, Black")
     const firstColor = colorName.split(',')[0].trim().toLowerCase();
     
-    // Expanded color map
+    // ** NEW ** Greatly expanded color map for better matching
     const colorMap = {
         'black': '#000000', 'white': '#FFFFFF', 'grey': '#808080',
         'gray': '#808080', 'silver': '#C0C0C0', 'red': '#FF0000',
@@ -55,9 +55,17 @@ function mapColorToHex(colorName) {
         'tan': '#D2B48C', 'ivory': '#FFFFF0', 'honeydew': '#F0FFF0',
         'azure': '#F0FFFF', 'lavender': '#E6E6FA', 'rose': '#FFE4E1',
         'lilac': '#C8A2C8', 'mint': '#98FF98', 'peach': '#FFDAB9',
-        'light blue': '#ADD8E6', 'dark green': '#006400', 'light grey': '#D3D3D3',
-        'dark blue': '#00008B', 'light green': '#90EE90', 'dark grey': '#A9A9A9',
-        'multicolour': '#CCCCCC' // A neutral default for multi-color items
+        'sky blue': '#87CEEB', 'royal blue': '#4169E1', 'cobalt': '#0047AB',
+        'denim': '#1560BD', 'emerald': '#50C878', 'mint green': '#98FF98',
+        'lime green': '#32CD32', 'forest green': '#228B22', 'olive green': '#6B8E23',
+        'mustard yellow': '#FFDB58', 'lemon': '#FFFACD', 'coral pink': '#F88379',
+        'hot pink': '#FF69B4', 'baby pink': '#F4C2C2', 'ruby': '#E0115F',
+        'scarlet': '#FF2400', 'wine': '#722F37', 'terracotta': '#E2725B',
+        'bronze': '#CD7F32', 'light blue': '#ADD8E6', 'dark green': '#006400', 
+        'light grey': '#D3D3D3', 'dark blue': '#00008B', 'light green': '#90EE90', 
+        'dark grey': '#A9A9A9', 'multicolour': '#CCCCCC', 'check': '#A9A9A9',
+        'floral': '#A9A9A9', 'animal print': '#A9A9A9', 'striped': '#A9A9A9',
+        'camouflage': '#A9A9A9', 'geometric': '#A9A9A9', 'abstract': '#A9A9A9'
     };
 
     const hexValue = colorMap[firstColor] || null;
