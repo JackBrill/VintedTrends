@@ -1,18 +1,21 @@
+// server.js
 import express from "express";
-import { startVintedBot } from "./vinted.js";
-import salesData from "./salesData.js";
+import path from "path";
+import { fileURLToPath } from "url";
+import { readSales } from "./salesData.js";
+import "./vinted.js"; // start bot
 
 const app = express();
-app.use(express.json());
-app.use(express.static("public"));
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/sales", (req, res) => {
-  res.json(salesData.getAll());
+  const sales = readSales();
+  res.json(sales);
 });
 
 app.listen(3000, () => {
   console.log("✅ Dashboard running at http://localhost:3000");
-
-  // Start the bot in background
-  startVintedBot();
 });
