@@ -6,7 +6,7 @@ import fetch from "node-fetch";
 import { PROXIES, DISCORD_WEBHOOK_URL, VINTED_CATALOG_URL } from "./config.js";
 
 // Settings
-const BATCH_SIZE = 100; // number of items to track
+const BATCH_SIZE = 90; // number of items to track
 const CHECK_INTERVAL = 60 * 1000; // 60 seconds
 const BATCH_DURATION = 5 * 60 * 1000; // 5 minutes
 const CONCURRENT_CHECKS = 20; // ** NEW ** Number of items to check at once
