@@ -3,6 +3,8 @@ import { chromium } from "playwright";
 import fetch from "node-fetch";
 import { PROXIES, DISCORD_WEBHOOK_URL, VINTED_CATALOG_URL } from "./config.js";
 import { addSale } from "./salesData.js";
+import { sendTestSoldItem } from "./commands.js";
+import readline from "readline";
 
 // Settings
 const BATCH_SIZE = 30;
@@ -201,3 +203,14 @@ async function sendDiscordNotification(embed) {
     }
   }
 })();
+
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+});
+
+rl.on("line", async (input) => {
+  if (input.trim().toLowerCase() === "test") {
+    await sendTestSoldItem();
+  }
+});
