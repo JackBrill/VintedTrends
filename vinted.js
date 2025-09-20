@@ -1,10 +1,7 @@
 // vinted.js
 import { chromium } from "playwright";
 import fetch from "node-fetch";
-import { EventEmitter } from "events";
-
-// Shared notifier for dashboard
-export const notifier = new EventEmitter();
+import { addSale } from "./salesData.js";
 
 // === CONFIG ===
 const PROXIES = [
@@ -29,14 +26,11 @@ const PROXIES = [
   "104.252.81.97:5968:mtqikwov:autmrqhdcnfn",
   "154.194.26.109:6350:mtqikwov:autmrqhdcnfn",
 ];
+const DISCORD_WEBHOOK_URL = "YOUR_DISCORD_WEBHOOK_URL_HERE";
 
-// Discord webhook
-const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1418908479229530223/8_Eg73-4nZL-QoaGKjXIJF0UOxEAMBiuZGRv5CS3VGd11gLvblOgaLNk1UIqmCbTyA6Z";
-
-// Settings
 const BATCH_SIZE = 30;
-const CHECK_INTERVAL = 60 * 1000;
-const BATCH_DURATION = 10 * 60 * 1000;
+const CHECK_INTERVAL = 60 * 1000; // every 60s
+const BATCH_DURATION = 10 * 60 * 1000; // 10 min
 
 // === HELPERS ===
 function getRandomProxy() {
@@ -103,66 +97,54 @@ async function sendDiscordNotification(embed) {
         }
 
         const trackedItems = [];
-for (const item of items.slice(0, BATCH_SIZE)) {
-  try {
-    const name = await item.$eval(
-      '[data-testid$="--description-title"]',
-      (el) => el.innerText.trim()
-    );
-    const subtitle = await item.$eval(
-      '[data-testid$="--description-subtitle"]',
-      (el) => el.innerText.trim()
-    );
-    const price = await item.$eval(
-      '[data-testid$="--price-text"]',
-      (el) => el.innerText.trim()
-    );
-    const link = await item.$eval(
-      'a[data-testid$="--overlay-link"]',
-      (el) => el.href
-    );
+        for (const item of items.slice(0, BATCH_SIZE)) {
+          try {
+            const name = await item.$eval(
+              '[data-testid$="--description-title"]',
+              (el) => el.innerText.trim()
+            );
+            const price = await item.$eval(
+              '[data-testid$="--price-text"]',
+              (el) => el.innerText.trim()
+            );
+            const link = await item.$eval(
+              'a[data-testid$="--overlay-link"]',
+              (el) => el.href
+            );
 
-    // Image is optional
-    let image = "";
-    try {
-      image = await item.$eval('img', (el) => el.src);
-    } catch {
-      image = "";
-    }
+            trackedItems.push({
+              name,
+              price,
+              link,
+              sold: false,
+              startedAt: new Date(),
+              soldAt: null,
+            });
+            console.log(`Tracking item: ${name} | ${link} | ${price}`);
+          } catch (err) {
+            console.log("Skipped an item:", err.message);
+          }
+        }
 
-    trackedItems.push({
-      name,
-      subtitle,
-      price,
-      link,
-      image,
-      sold: false,
-      startedAt: new Date(),
-      soldAt: null,
-    });
-    console.log(`Tracking item: ${name} | ${link} | ${price}`);
-  } catch (err) {
-    console.log("Skipped an item due to error:", err.message);
-  }
-}
-
-
-        // Notify scan start
-        notifier.emit("scan_start", trackedItems);
+        // Send "Scan Starting"
+        const namesList = trackedItems.map((i) => i.name).join(", ");
         await sendDiscordNotification({
           title: "📡 Scan Starting",
-          description: trackedItems.map((i) => i.name).join(", "),
+          description: namesList || "No items",
           color: 0x3498db,
           timestamp: new Date().toISOString(),
         });
 
         let keepChecking = true;
+        let isClosing = false;
 
         const interval = setInterval(async () => {
-          if (!keepChecking) return;
+          if (!keepChecking || isClosing) return;
 
           for (const item of trackedItems) {
+            if (!keepChecking || isClosing) return;
             if (item.sold) continue;
+
             const itemPage = await context.newPage().catch(() => null);
             if (!itemPage) return;
 
@@ -171,6 +153,8 @@ for (const item of items.slice(0, BATCH_SIZE)) {
                 waitUntil: "domcontentloaded",
                 timeout: 15000,
               });
+              await itemPage.waitForTimeout(1500);
+
               const soldElement = await itemPage.$(
                 '[data-testid="item-status--content"]'
               );
@@ -183,15 +167,12 @@ for (const item of items.slice(0, BATCH_SIZE)) {
               if (isSold) {
                 item.sold = true;
                 item.soldAt = new Date();
-                item.timeToSell = Math.round(
-                  (item.soldAt - item.startedAt) / 1000
-                );
+                let image = "";
+                try {
+                  image = await itemPage.$eval("img", (el) => el.src);
+                } catch {}
 
-                console.log(
-                  `✅ Item SOLD: ${item.name} | ${item.price} | ${item.timeToSell}s`
-                );
-
-                notifier.emit("item_sold", item);
+                console.log(`✅ Item SOLD: ${item.name} | ${item.link} | ${item.price}`);
 
                 await sendDiscordNotification({
                   title: "🛑 Item SOLD",
@@ -200,24 +181,44 @@ for (const item of items.slice(0, BATCH_SIZE)) {
                     { name: "Name", value: item.name },
                     { name: "Price", value: item.price },
                     {
-                      name: "Time to Sell",
-                      value: `${item.timeToSell}s`,
+                      name: "Started Tracking",
+                      value: item.startedAt.toISOString(),
                     },
+                    { name: "Sold At", value: item.soldAt.toISOString() },
                     { name: "Link", value: item.link },
                   ],
+                  image: image ? { url: image } : undefined,
                   timestamp: new Date().toISOString(),
                 });
+
+                // Save to sales.json
+                addSale({
+                  name: item.name,
+                  price: item.price,
+                  link: item.link,
+                  image,
+                  speed: (item.soldAt - item.startedAt) / 1000,
+                  soldAt: item.soldAt,
+                });
+              } else {
+                console.log(`Item still available: ${item.name}`);
               }
+            } catch (err) {
+              if (!isClosing) console.log("Error checking item:", err.message);
             } finally {
               await itemPage.close().catch(() => {});
             }
           }
         }, CHECK_INTERVAL);
 
-        await new Promise((r) => setTimeout(r, BATCH_DURATION));
+        // Wait batch duration
+        await new Promise((resolve) => setTimeout(resolve, BATCH_DURATION));
 
+        console.log("Batch duration ended. Closing browser...");
         keepChecking = false;
+        isClosing = true;
         clearInterval(interval);
+        await context.close().catch(() => {});
         await browser.close().catch(() => {});
         break;
       } catch (err) {
@@ -225,6 +226,10 @@ for (const item of items.slice(0, BATCH_SIZE)) {
         attempt++;
         await browser.close().catch(() => {});
       }
+    }
+
+    if (items.length < BATCH_SIZE) {
+      console.log("Failed to load enough items. Restarting...");
     }
   }
 })();
