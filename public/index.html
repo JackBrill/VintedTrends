@@ -78,17 +78,17 @@
 
   <body class="bg-secondary">
     <header class="bg-card border-b">
-      <!-- ** UPDATED ** Header now includes search bar -->
       <div class="container mx-auto py-4 px-4 flex justify-between items-center gap-8">
         <!-- Left side: Title and Nav -->
         <div class="flex items-center gap-8">
           <h1 class="font-title text-3xl font-bold text-primary">VinTrack</h1>
           <nav class="hidden md:block">
             <ul class="flex items-center gap-4">
-              <li><a href="/mens-clothing" class="text-foreground font-semibold hover:text-primary transition-colors px-3 py-2 rounded-md">Mens Clothing</a></li>
-              <li><a href="/womens-clothing" class="text-foreground font-semibold hover:text-primary transition-colors px-3 py-2 rounded-md">Womens Clothing</a></li>
-              <li><a href="/shoes" class="text-foreground font-semibold hover:text-primary transition-colors px-3 py-2 rounded-md">Shoes</a></li>
-              <li><a href="/electronics" class="text-foreground font-semibold hover:text-primary transition-colors px-3 py-2 rounded-md">Electronics</a></li>
+              <!-- ** NEW ** Added data-category attribute -->
+              <li><a href="/mens-clothing" data-category="Men's Clothing" class="nav-link text-foreground font-semibold hover:text-primary transition-colors px-3 py-2 rounded-md">Mens Clothing</a></li>
+              <li><a href="/womens-clothing" data-category="Women's Clothing" class="nav-link text-foreground font-semibold hover:text-primary transition-colors px-3 py-2 rounded-md">Womens Clothing</a></li>
+              <li><a href="/shoes" data-category="Shoes" class="nav-link text-foreground font-semibold hover:text-primary transition-colors px-3 py-2 rounded-md">Shoes</a></li>
+              <li><a href="/electronics" data-category="Electronics" class="nav-link text-foreground font-semibold hover:text-primary transition-colors px-3 py-2 rounded-md">Electronics</a></li>
             </ul>
           </nav>
         </div>
@@ -96,7 +96,7 @@
         <div class="relative">
           <input type="text" id="searchBar" placeholder="Search items..." class="bg-secondary border border-gray-300 rounded-full py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent w-48 sm:w-64 transition-all duration-300 focus:w-72">
           <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <svg class="w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg class="w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
@@ -106,7 +106,8 @@
 
     <main class="container mx-auto p-4 md:p-6">
       <div class="flex justify-between items-center mb-4">
-        <h2 class="text-xl font-bold text-gray-800">Men's Clothing</h2>
+        <!-- ** NEW ** Added an ID to the category title -->
+        <h2 id="categoryTitle" class="text-xl font-bold text-gray-800">Men's Clothing</h2>
         <select id="sortOptions" class="bg-transparent rounded-full border-2 border-primary text-primary font-semibold py-2 px-4 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 transition-colors">
           <option value="newest" selected>Most Recent</option>
           <option value="time_asc">Time Taken</option>
@@ -123,6 +124,10 @@
       const salesContainer = document.getElementById("salesContainer");
       const sortOptions = document.getElementById("sortOptions");
       const searchBar = document.getElementById("searchBar");
+      // ** NEW ** Selecting new elements
+      const categoryTitle = document.getElementById("categoryTitle");
+      const navLinks = document.querySelectorAll(".nav-link");
+
       let allSales = [];
       let currentSort = 'newest';
       let searchQuery = '';
@@ -292,6 +297,17 @@
       sortOptions.addEventListener('change', (e) => {
         currentSort = e.target.value;
         renderSales();
+      });
+
+      // ** NEW ** Event listener for navigation links
+      navLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+          e.preventDefault(); // Prevents the browser from navigating to a new page
+          const category = e.target.dataset.category;
+          categoryTitle.innerText = category;
+          // In the future, you could add logic here to fetch data for the new category
+          console.log(`Switched to category: ${category}`);
+        });
       });
 
       fetchSales();
