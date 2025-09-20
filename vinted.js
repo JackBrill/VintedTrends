@@ -1,17 +1,15 @@
 // vinted.js
 import { chromium } from "playwright";
 import fetch from "node-fetch";
+import fs from "fs/promises";
 import { PROXIES, DISCORD_WEBHOOK_URL, VINTED_CATALOG_URL } from "./config.js";
-import { addSale } from "./salesData.js";
-import { sendTestSoldItem } from "./commands.js";
-import readline from "readline";
 
-// Settings
+// SETTINGS
 const BATCH_SIZE = 30;
 const CHECK_INTERVAL = 60 * 1000;
 const BATCH_DURATION = 10 * 60 * 1000;
 
-// Helpers
+// HELPERS
 function getRandomProxy() {
   const proxyStr = PROXIES[Math.floor(Math.random() * PROXIES.length)];
   const [host, port, user, pass] = proxyStr.split(":");
@@ -30,7 +28,21 @@ async function sendDiscordNotification(embed) {
   }
 }
 
-// Main loop
+async function saveSale(item) {
+  let sales = [];
+  try {
+    const data = await fs.readFile("sales.json", "utf8");
+    sales = JSON.parse(data);
+  } catch {}
+  sales.push(item);
+  try {
+    await fs.writeFile("sales.json", JSON.stringify(sales, null, 2));
+  } catch (err) {
+    console.log("❌ Failed to save sale:", err.message);
+  }
+}
+
+// MAIN LOOP
 (async () => {
   while (true) {
     let attempt = 1;
@@ -43,13 +55,8 @@ async function sendDiscordNotification(embed) {
 
       const browser = await chromium.launch({ headless: true });
       const context = await browser.newContext({
-        proxy: {
-          server: `http://${proxy.host}:${proxy.port}`,
-          username: proxy.user,
-          password: proxy.pass,
-        },
-        userAgent:
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
+        proxy: { server: `http://${proxy.host}:${proxy.port}`, username: proxy.user, password: proxy.pass },
+        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
         viewport: { width: 1280, height: 800 },
       });
 
@@ -57,18 +64,13 @@ async function sendDiscordNotification(embed) {
 
       try {
         console.log("Navigating to Vinted catalog...");
-        const response = await page.goto(VINTED_CATALOG_URL, {
-          waitUntil: "domcontentloaded",
-          timeout: 30000,
-        });
+        const response = await page.goto(VINTED_CATALOG_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
         console.log(`Response status: ${response.status()}`);
         await page.waitForTimeout(2000);
 
         items = await page.$$('div[data-testid="grid-item"]');
         console.log(`Found ${items.length} items on the page.`);
-
         if (items.length < BATCH_SIZE) {
-          console.log("Not enough items, retrying...");
           attempt++;
           await browser.close();
           continue;
@@ -77,47 +79,18 @@ async function sendDiscordNotification(embed) {
         const trackedItems = [];
         for (const item of items.slice(0, BATCH_SIZE)) {
           try {
-            const name = await item.$eval(
-              '[data-testid$="--description-title"]',
-              (el) => el.innerText.trim()
-            );
-            const subtitle = await item.$eval(
-              '[data-testid$="--description-subtitle"]',
-              (el) => el.innerText.trim()
-            );
-            const price = await item.$eval(
-              '[data-testid$="--price-text"]',
-              (el) => el.innerText.trim()
-            );
-            const link = await item.$eval(
-              'a[data-testid$="--overlay-link"]',
-              (el) => el.href
-            );
+            const name = await item.$eval('[data-testid$="--description-title"]', el => el.innerText.trim());
+            const subtitle = await item.$eval('[data-testid$="--description-subtitle"]', el => el.innerText.trim());
+            const price = await item.$eval('[data-testid$="--price-text"]', el => el.innerText.trim());
+            const link = await item.$eval('a[data-testid$="--overlay-link"]', el => el.href);
 
-            trackedItems.push({
-              name,
-              subtitle,
-              price,
-              link,
-              sold: false,
-              startedAt: new Date(),
-              soldAt: null,
-              image: null,
-            });
+            trackedItems.push({ name, subtitle, price, link, sold: false, startedAt: new Date(), soldAt: null });
             console.log(`Tracking item: ${name} | ${link} | ${price}`);
-          } catch {
-            continue;
-          }
+          } catch {}
         }
 
-        // Send Discord embed for new scan
-        const namesList = trackedItems.map((i) => i.name).join(", ");
-        await sendDiscordNotification({
-          title: "📡 Scan Starting",
-          description: namesList || "No items",
-          color: 0x3498db,
-          timestamp: new Date().toISOString(),
-        });
+        // Send "Scan Starting" embed
+        await sendDiscordNotification({ title: "📡 Scan Starting", description: trackedItems.map(i => i.name).join(", "), color: 0x3498db });
 
         let keepChecking = true;
 
@@ -125,92 +98,68 @@ async function sendDiscordNotification(embed) {
           if (!keepChecking) return;
 
           for (const item of trackedItems) {
-            if (!keepChecking || item.sold) continue;
+            if (item.sold) continue;
 
             const itemPage = await context.newPage().catch(() => null);
             if (!itemPage) return;
 
             try {
-              await itemPage.goto(item.link, {
-                waitUntil: "domcontentloaded",
-                timeout: 15000,
-              });
+              await itemPage.goto(item.link, { waitUntil: "domcontentloaded", timeout: 15000 });
               await itemPage.waitForTimeout(1500);
-
-              const soldElement = await itemPage.$(
-                '[data-testid="item-status--content"]'
-              );
-              const isSold = soldElement
-                ? (await soldElement.innerText())
-                    .toLowerCase()
-                    .includes("sold")
-                : false;
+              const soldElement = await itemPage.$('[data-testid="item-status--content"]');
+              const isSold = soldElement ? (await soldElement.innerText()).toLowerCase().includes("sold") : false;
 
               if (isSold) {
                 item.sold = true;
                 item.soldAt = new Date();
 
-                // Get image
+                // Grab image only when sold
                 const imgEl = await itemPage.$('img[data-testid$="--image--img"]');
-                if (imgEl) item.image = await imgEl.getAttribute("src");
+                const img = imgEl ? await imgEl.getAttribute("src") : "";
 
-                console.log(
-                  `✅ Item SOLD: ${item.name} | ${item.link} | ${item.price}`
-                );
+                const saleData = { ...item, image: img };
+                await saveSale(saleData);
 
-                // Add to JSON for website
-                addSale(item);
-
-                // Discord embed
                 await sendDiscordNotification({
                   title: "🛑 Item SOLD",
                   color: 0xff0000,
                   fields: [
                     { name: "Name", value: item.name, inline: false },
                     { name: "Price", value: item.price, inline: true },
-                    {
-                      name: "Started Tracking",
-                      value: item.startedAt.toISOString(),
-                      inline: true,
-                    },
+                    { name: "Started Tracking", value: item.startedAt.toISOString(), inline: true },
                     { name: "Sold At", value: item.soldAt.toISOString(), inline: true },
                     { name: "Link", value: item.link, inline: false },
                   ],
                   timestamp: new Date().toISOString(),
                 });
+              } else {
+                console.log(`Item still available: ${item.name}`);
               }
-            } catch {
-              continue;
+            } catch (err) {
+              console.log("Error checking item:", err.message);
             } finally {
               await itemPage.close().catch(() => {});
             }
           }
         }, CHECK_INTERVAL);
 
-        await new Promise((resolve) => setTimeout(resolve, BATCH_DURATION));
-
-        console.log("Batch ended, closing browser...");
+        await new Promise(resolve => setTimeout(resolve, BATCH_DURATION));
+        console.log("Batch duration ended. Closing browser...");
         keepChecking = false;
         clearInterval(interval);
         await context.close().catch(() => {});
         await browser.close().catch(() => {});
         break;
+
       } catch (err) {
         console.log("Navigation or extraction error:", err.message);
         attempt++;
         await browser.close().catch(() => {});
       }
     }
+
+    if (items.length < BATCH_SIZE) {
+      console.log("Failed to load enough items. Restarting main loop...");
+    }
   }
 })();
-
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
-
-rl.on("line", async (input) => {
-  if (input.trim().toLowerCase() === "test") {
-    await sendTestSoldItem();
-  }
-});
