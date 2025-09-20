@@ -2,8 +2,14 @@
 import { chromium } from "playwright";
 import fetch from "node-fetch";
 import { PROXIES, DISCORD_WEBHOOK_URL, VINTED_CATALOG_URL } from "./config.js";
-import salesData from "./salesData.js";
+import { addSale } from "./salesData.js";
 
+// Settings
+const BATCH_SIZE = 30;
+const CHECK_INTERVAL = 60 * 1000;
+const BATCH_DURATION = 10 * 60 * 1000;
+
+// Helpers
 function getRandomProxy() {
   const proxyStr = PROXIES[Math.floor(Math.random() * PROXIES.length)];
   const [host, port, user, pass] = proxyStr.split(":");
@@ -22,11 +28,8 @@ async function sendDiscordNotification(embed) {
   }
 }
 
-export async function startVintedBot() {
-  const BATCH_SIZE = 50;
-  const CHECK_INTERVAL = 60 * 1000; // 60 sec
-  const BATCH_DURATION = 7 * 60 * 1000; // 10 min
-
+// Main loop
+(async () => {
   while (true) {
     let attempt = 1;
     let items = [];
@@ -52,7 +55,10 @@ export async function startVintedBot() {
 
       try {
         console.log("Navigating to Vinted catalog...");
-        const response = await page.goto(VINTED_CATALOG_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
+        const response = await page.goto(VINTED_CATALOG_URL, {
+          waitUntil: "domcontentloaded",
+          timeout: 30000,
+        });
         console.log(`Response status: ${response.status()}`);
         await page.waitForTimeout(2000);
 
@@ -69,10 +75,22 @@ export async function startVintedBot() {
         const trackedItems = [];
         for (const item of items.slice(0, BATCH_SIZE)) {
           try {
-            const name = await item.$eval('[data-testid$="--description-title"]', el => el.innerText.trim());
-            const subtitle = await item.$eval('[data-testid$="--description-subtitle"]', el => el.innerText.trim());
-            const price = await item.$eval('[data-testid$="--price-text"]', el => el.innerText.trim());
-            const link = await item.$eval('a[data-testid$="--overlay-link"]', el => el.href);
+            const name = await item.$eval(
+              '[data-testid$="--description-title"]',
+              (el) => el.innerText.trim()
+            );
+            const subtitle = await item.$eval(
+              '[data-testid$="--description-subtitle"]',
+              (el) => el.innerText.trim()
+            );
+            const price = await item.$eval(
+              '[data-testid$="--price-text"]',
+              (el) => el.innerText.trim()
+            );
+            const link = await item.$eval(
+              'a[data-testid$="--overlay-link"]',
+              (el) => el.href
+            );
 
             trackedItems.push({
               name,
@@ -82,88 +100,95 @@ export async function startVintedBot() {
               sold: false,
               startedAt: new Date(),
               soldAt: null,
+              image: null,
             });
-          } catch (err) {
-            console.log("Skipped item due to error:", err.message);
+            console.log(`Tracking item: ${name} | ${link} | ${price}`);
+          } catch {
+            continue;
           }
         }
 
-        // Send scan starting webhook
+        // Send Discord embed for new scan
+        const namesList = trackedItems.map((i) => i.name).join(", ");
         await sendDiscordNotification({
           title: "📡 Scan Starting",
-          description: trackedItems.map(i => i.name).join(", "),
+          description: namesList || "No items",
           color: 0x3498db,
           timestamp: new Date().toISOString(),
         });
 
         let keepChecking = true;
-        let isClosing = false;
 
         const interval = setInterval(async () => {
-          if (!keepChecking || isClosing) return;
+          if (!keepChecking) return;
 
           for (const item of trackedItems) {
-            if (!keepChecking || isClosing) return;
-            if (item.sold) continue;
+            if (!keepChecking || item.sold) continue;
 
             const itemPage = await context.newPage().catch(() => null);
             if (!itemPage) return;
 
             try {
-              await itemPage.goto(item.link, { waitUntil: "domcontentloaded", timeout: 15000 });
+              await itemPage.goto(item.link, {
+                waitUntil: "domcontentloaded",
+                timeout: 15000,
+              });
               await itemPage.waitForTimeout(1500);
 
-              const soldElement = await itemPage.$('[data-testid="item-status--content"]');
-              const isSold = soldElement ? (await soldElement.innerText()).toLowerCase().includes("sold") : false;
+              const soldElement = await itemPage.$(
+                '[data-testid="item-status--content"]'
+              );
+              const isSold = soldElement
+                ? (await soldElement.innerText())
+                    .toLowerCase()
+                    .includes("sold")
+                : false;
 
               if (isSold) {
                 item.sold = true;
                 item.soldAt = new Date();
 
-                // Fetch image
+                // Get image
                 const imgEl = await itemPage.$('img[data-testid$="--image--img"]');
-                const imageUrl = imgEl ? await imgEl.getAttribute("src") : null;
+                if (imgEl) item.image = await imgEl.getAttribute("src");
 
-                // Save to local sales data
-                salesData.add({
-                  name: item.name,
-                  price: item.price,
-                  link: item.link,
-                  image: imageUrl,
-                  startedAt: item.startedAt,
-                  soldAt: item.soldAt,
-                });
+                console.log(
+                  `✅ Item SOLD: ${item.name} | ${item.link} | ${item.price}`
+                );
 
-                console.log(`✅ Item SOLD: ${item.name} | ${item.link} | ${item.price}`);
+                // Add to JSON for website
+                addSale(item);
 
+                // Discord embed
                 await sendDiscordNotification({
                   title: "🛑 Item SOLD",
                   color: 0xff0000,
                   fields: [
-                    { name: "Name", value: item.name },
-                    { name: "Price", value: item.price },
-                    { name: "Started Tracking", value: item.startedAt.toISOString() },
-                    { name: "Sold At", value: item.soldAt.toISOString() },
-                    { name: "Link", value: item.link },
+                    { name: "Name", value: item.name, inline: false },
+                    { name: "Price", value: item.price, inline: true },
+                    {
+                      name: "Started Tracking",
+                      value: item.startedAt.toISOString(),
+                      inline: true,
+                    },
+                    { name: "Sold At", value: item.soldAt.toISOString(), inline: true },
+                    { name: "Link", value: item.link, inline: false },
                   ],
-                  image: imageUrl ? { url: imageUrl } : undefined,
                   timestamp: new Date().toISOString(),
                 });
-              } else {
-                console.log(`Item still available: ${item.name}`);
               }
-            } catch (err) {
-              if (!isClosing) console.log("Error checking item:", err.message);
+            } catch {
+              continue;
             } finally {
               await itemPage.close().catch(() => {});
             }
           }
         }, CHECK_INTERVAL);
 
-        await new Promise(resolve => setTimeout(resolve, BATCH_DURATION));
+        await new Promise((resolve) => setTimeout(resolve, BATCH_DURATION));
 
+        console.log("Batch ended, closing browser...");
         keepChecking = false;
-        isClosing = true;
         clearInterval(interval);
         await context.close().catch(() => {});
         await browser.close().catch(() => {});
@@ -174,9 +199,5 @@ export async function startVintedBot() {
         await browser.close().catch(() => {});
       }
     }
-
-    if (items.length < BATCH_SIZE) {
-      console.log("Failed to load enough items after multiple attempts. Restarting main loop...");
-    }
   }
-}
+})();
