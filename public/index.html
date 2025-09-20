@@ -3,18 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vinted Tracker - Second-hand Fashion Marketplace</title>
-    <meta name="description" content="Track and discover amazing second-hand fashion items on Vinted Tracker. Find vintage clothing, designer accessories, and sustainable fashion deals." />
-    <meta name="author" content="Lovable" />
+    <title>Vinted Trends - Live Sales Dashboard</title>
+    <meta name="description" content="A live dashboard tracking the latest sold items on Vinted. Discover trends in second-hand fashion, vintage clothing, and more." />
+    <meta name="author" content="VintedTrends Project" />
 
-    <meta property="og:title" content="964dbdfe-f9ba-4b8f-9a73-3dbfeff0fe67" />
-    <meta property="og:description" content="Lovable Generated Project" />
+    <meta property="og:title" content="Vinted Trends - Live Sales Dashboard" />
+    <meta property="og:description" content="Live tracker for recently sold items on Vinted." />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    
+    <link rel="stylesheet" href="style.css" />
   </head>
 
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+  <body class="bg-background text-foreground">
+    <header class="border-b bg-card">
+      <div class="container mx-auto p-4 flex justify-between items-center">
+        <div>
+            <h1 class="text-2xl font-bold text-primary">Vinted Trends Dashboard</h1>
+            <p class="text-muted-foreground">Live tracker for recently sold items.</p>
+        </div>
+      </div>
+    </header>
+
+    <main class="container mx-auto p-4">
+      <div id="salesContainer" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+        </div>
+    </main>
+    
+    <script src="main.js" defer></script>
   </body>
 </html>
