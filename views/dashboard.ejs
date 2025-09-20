@@ -1,43 +1,43 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Vinted Bot Dashboard</title>
+  <meta charset="UTF-8">
+  <title>Vinted Trends Dashboard</title>
   <link rel="stylesheet" href="/style.css">
   <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
-  <h1>👕 Vinted Trends Dashboard</h1>
+  <h1>Vinted Trends Dashboard</h1>
 
   <section>
-    <h2>Active Scan</h2>
-    <ul id="scan-list"></ul>
-  </section>
-
-  <section>
-    <h2>Sold Items</h2>
-    <ul id="sold-list"></ul>
+    <h2>🔥 Quick Selling Items</h2>
+    <div id="quick-sells" class="grid"></div>
   </section>
 
   <script>
     const socket = io();
+    const quickSells = document.getElementById("quick-sells");
 
-    socket.on("scan_start", (items) => {
-      const list = document.getElementById("scan-list");
-      list.innerHTML = "";
-      items.forEach(i => {
-        const li = document.createElement("li");
-        li.textContent = `${i.name} - ${i.price}`;
-        list.appendChild(li);
-      });
-    });
+    // Load existing sold items
+    fetch("/api/sold")
+      .then(res => res.json())
+      .then(items => items.forEach(addQuickSellCard));
 
-    socket.on("item_sold", (item) => {
-      const list = document.getElementById("sold-list");
-      const li = document.createElement("li");
-      li.textContent = `✅ ${item.name} sold at ${item.soldAt}`;
-      list.appendChild(li);
-    });
+    socket.on("item_sold", (item) => addQuickSellCard(item));
+
+    function addQuickSellCard(item) {
+      const div = document.createElement("div");
+      div.className = "card";
+      div.innerHTML = `
+        <a href="${item.link}" target="_blank">
+          <img src="${item.image}" alt="${item.name}">
+          <h3>${item.name}</h3>
+          <p>💲 ${item.price}</p>
+          <p>⏱ ${item.timeToSell || "?"}s to sell</p>
+        </a>
+      `;
+      quickSells.prepend(div);
+    }
   </script>
 </body>
 </html>
-
