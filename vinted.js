@@ -162,42 +162,45 @@ async function sendDiscordNotification(embed) {
                 : false;
 
               if (isSold) {
-                item.sold = true;
-                item.soldAt = new Date().toISOString();
+    item.sold = true;
+    item.soldAt = new Date();
 
-                // Fetch image only when sold
-                try {
-                  item.image = await itemPage.$eval(
-                    'img[data-testid$="--image--img"]',
-                    (el) => el.src
-                  );
-                } catch {
-                  item.image = null;
-                }
+    // Get the item image
+    let imageUrl = null;
+    try {
+        const imgEl = await itemPage.$('img[data-testid$="--image--img"]');
+        imageUrl = imgEl ? await imgEl.getAttribute('src') : null;
+    } catch (err) {
+        console.log("Failed to get item image:", err.message);
+    }
+    item.image = imageUrl;
 
-                console.log(
-                  `✅ Item SOLD: ${item.name} | ${item.link} | ${item.price}`
-                );
+    console.log(`✅ Item SOLD: ${item.name} | ${item.link} | ${item.price}`);
 
-                // Add to sales.json
-                const salesData = loadSales();
-                salesData.unshift(item);
-                saveSales(salesData);
+    // Save to sales.json
+    const fs = require("fs");
+    let sales = [];
+    if (fs.existsSync("sales.json")) {
+        sales = JSON.parse(fs.readFileSync("sales.json", "utf-8"));
+    }
+    sales.push(item);
+    fs.writeFileSync("sales.json", JSON.stringify(sales, null, 2));
 
-                // Discord embed
-                await sendDiscordNotification({
-                  title: "🛑 Item SOLD",
-                  color: 0xff0000,
-                  fields: [
-                    { name: "Name", value: item.name, inline: false },
-                    { name: "Price", value: item.price, inline: true },
-                    { name: "Started Tracking", value: item.startedAt, inline: true },
-                    { name: "Sold At", value: item.soldAt, inline: true },
-                    { name: "Link", value: item.link, inline: false },
-                  ],
-                  image: item.image ? { url: item.image } : undefined,
-                  timestamp: new Date().toISOString(),
-                });
+    // Send Discord embed
+    await sendDiscordNotification({
+        title: "🛑 Item SOLD",
+        color: 0xff0000,
+        fields: [
+            { name: "Name", value: item.name, inline: false },
+            { name: "Price", value: item.price, inline: true },
+            { name: "Started Tracking", value: item.startedAt.toISOString(), inline: true },
+            { name: "Sold At", value: item.soldAt.toISOString(), inline: true },
+            { name: "Link", value: item.link, inline: false },
+        ],
+        image: { url: item.image }, // embed image
+        timestamp: new Date().toISOString(),
+    });
+}
               } else {
                 console.log(`Item still available: ${item.name}`);
               }
