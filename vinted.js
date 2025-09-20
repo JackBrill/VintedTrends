@@ -101,7 +101,7 @@ function getRandomProxy() {
         proxy: {
           server: `http://${proxy.host}:${proxy.port}`,
           username: proxy.user,
-          password: proxy.pass,
+          password: pass,
         },
         userAgent:
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
@@ -267,7 +267,7 @@ function getRandomProxy() {
         await context.close().catch(() => {});
         await browser.close().catch(() => {});
         break; 
-      } catch (err) { // <<< FIX: Added the missing opening brace here
+      } catch (err) {
         console.log("Navigation or extraction error:", err.message);
         attempt++;
         await browser.close().catch(() => {});
