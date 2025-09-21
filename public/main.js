@@ -1,4 +1,4 @@
-// Enhanced main.js - With Active Filter Tags
+// Enhanced main.js - With Click-Out to Apply Filters
 class VintedDashboard {
   constructor() {
     this.salesContainer = document.getElementById("salesContainer");
@@ -19,6 +19,7 @@ class VintedDashboard {
     this.currentFilters = { brand: [], color: [], size: [] };
     this.lastUpdateTime = null;
     this.filterOptions = { brand: [], color: [], size: [] };
+    this.activeDropdown = null; // Track the currently open filter dropdown
     
     this.init();
   }
@@ -215,6 +216,31 @@ class VintedDashboard {
     }
   }
 
+  /**
+   * NEW: A centralized function to apply a filter and update the UI.
+   * @param {string} filterType - 'brand', 'color', or 'size'.
+   */
+  applyFilter(filterType) {
+    if (!filterType) return;
+
+    const list = document.getElementById(`${filterType}FilterList`);
+    const btnText = document.getElementById(`${filterType}FilterBtnText`);
+    const dropdown = document.getElementById(`${filterType}FilterDropdown`);
+    const btn = document.getElementById(`${filterType}FilterBtn`);
+
+    const checked = list.querySelectorAll('input:checked');
+    this.currentFilters[filterType] = Array.from(checked).map(cb => cb.value);
+    
+    dropdown.classList.add('hidden');
+    
+    const count = this.currentFilters[filterType].length;
+    btnText.textContent = `${filterType.charAt(0).toUpperCase() + filterType.slice(1)}${count > 0 ? ` (${count})` : ''}`;
+    btn.classList.toggle('filter-btn-active', count > 0);
+    
+    this.renderSales();
+    this.activeDropdown = null; // Reset the active dropdown state
+  }
+
   setupEventListeners() {
     this.searchBar.addEventListener('input', e => { this.searchQuery = e.target.value; this.renderSales(); });
     this.resetFiltersBtn.addEventListener('click', () => { window.location.reload(); });
@@ -223,7 +249,12 @@ class VintedDashboard {
     // Sort Dropdown
     if (this.sortBtn) {
         const sortOptionsMap = { 'newest': 'Sort: Most Recent', 'time_asc': 'Sort: Fastest Sale', 'price_asc': 'Sort: Price Low-High', 'price_desc': 'Sort: Price High-Low' };
-        this.sortBtn.addEventListener('click', e => { e.stopPropagation(); document.querySelectorAll('.filter-dropdown').forEach(d => d.classList.add('hidden')); this.sortDropdown.classList.toggle('hidden'); });
+        this.sortBtn.addEventListener('click', e => { 
+            e.stopPropagation(); 
+            this.activeDropdown = null; // Sort is not a filter, so clear this state
+            document.querySelectorAll('.filter-dropdown').forEach(d => d.classList.add('hidden')); 
+            this.sortDropdown.classList.toggle('hidden'); 
+        });
         this.sortDropdown.addEventListener('click', e => {
             e.preventDefault();
             const target = e.target.closest('.sort-option');
@@ -242,18 +273,24 @@ class VintedDashboard {
         if (removeBtn) {
             const { filterType, filterValue } = removeBtn.dataset;
             this.currentFilters[filterType] = this.currentFilters[filterType].filter(val => val !== filterValue);
-            
             const btnText = document.getElementById(`${filterType}FilterBtnText`);
             const count = this.currentFilters[filterType].length;
             btnText.textContent = `${filterType.charAt(0).toUpperCase() + filterType.slice(1)}${count > 0 ? ` (${count})` : ''}`;
             document.getElementById(`${filterType}FilterBtn`).classList.toggle('filter-btn-active', count > 0);
-
             this.renderSales();
         }
     });
 
-    window.addEventListener('click', () => { document.querySelectorAll('.filter-dropdown, #sortDropdown').forEach(d => d.classList.add('hidden')); });
-    document.querySelectorAll('.filter-dropdown, #sortDropdown').forEach(d => { d.addEventListener('click', e => e.stopPropagation()); });
+    // Global click listener to close dropdowns AND APPLY FILTERS
+    window.addEventListener('click', () => {
+      if (this.activeDropdown) {
+          this.applyFilter(this.activeDropdown);
+      }
+      document.querySelectorAll('.filter-dropdown, #sortDropdown').forEach(d => d.classList.add('hidden'));
+    });
+    document.querySelectorAll('.filter-dropdown, #sortDropdown').forEach(d => {
+      d.addEventListener('click', e => e.stopPropagation());
+    });
   }
 
   setupFilter(filterType) {
@@ -267,9 +304,13 @@ class VintedDashboard {
       e.stopPropagation();
       document.querySelectorAll('.filter-dropdown, #sortDropdown').forEach(d => { if (d !== dropdown) d.classList.add('hidden'); });
       dropdown.classList.toggle('hidden');
+      
       if (!dropdown.classList.contains('hidden')) {
+          this.activeDropdown = filterType; // Set which dropdown is active
           this.updateFilterDropdown(filterType, this.filterOptions[filterType]);
           searchInput.focus();
+      } else {
+          this.activeDropdown = null; // Clear if it was closed manually
       }
     });
 
@@ -280,16 +321,7 @@ class VintedDashboard {
     });
 
     applyBtn.addEventListener('click', () => {
-      const list = document.getElementById(`${filterType}FilterList`);
-      const btnText = document.getElementById(`${filterType}FilterBtnText`);
-      const checked = list.querySelectorAll('input:checked');
-      this.currentFilters[filterType].length = 0;
-      this.currentFilters[filterType].push(...Array.from(checked).map(cb => cb.value));
-      dropdown.classList.add('hidden');
-      const count = this.currentFilters[filterType].length;
-      btnText.textContent = `${filterType.charAt(0).toUpperCase() + filterType.slice(1)}${count > 0 ? ` (${count})` : ''}`;
-      btn.classList.toggle('filter-btn-active', count > 0);
-      this.renderSales();
+      this.applyFilter(filterType);
     });
   }
 
