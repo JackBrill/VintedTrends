@@ -47,21 +47,14 @@ class VintedDashboard {
     return subtitle ? (subtitle.split('·')[0].trim().toUpperCase() || null) : null;
   }
 
-  extractBrand(item) {
-    // If the item has a direct brand field, use that
-    if (item.brand) return item.brand;
-    
-    // Otherwise, try to extract from subtitle (fallback for older data)
-    if (!item.subtitle) return null;
-    const conditionBlacklist = ['new with tags', 'new without tags', 'very good', 'good', 'satisfactory'];
-    const parts = item.subtitle.split('·').map(p => p.trim());
-    for (let i = 1; i < parts.length; i++) {
-      if (parts[i] && !conditionBlacklist.includes(parts[i].toLowerCase())) {
-        return parts[i];
-      }
-    }
+// This is the CORRECT new code
+extractBrand(item) {
+  if (!item.name) {
     return null;
   }
+  // The brand is assumed to be the first word of the item's name.
+  return item.name.split(' ')[0];
+}
 
   mapColorNameToHex(colorName) {
     if (!colorName) return null;
