@@ -1,12 +1,11 @@
 // vinted.js
-import { chromium } from "playwright-extra"; // ** MODIFIED **
-import stealthPlugin from "puppeteer-extra-plugin-stealth"; // ** NEW **
+import { chromium } from "playwright-extra";
+import stealthPlugin from "puppeteer-extra-plugin-stealth";
 import fs from "fs";
 import path from "path";
 import fetch from "node-fetch";
 import { PROXIES, DISCORD_WEBHOOK_URL, VINTED_CATALOG_URL } from "./config.js";
 
-// ** NEW ** Apply the stealth plugin
 chromium.use(stealthPlugin());
 
 // Settings
@@ -17,10 +16,7 @@ const BATCH_DURATION = 5 * 60 * 1000;
 const CONCURRENT_CHECKS = 3; 
 const VERBOSE_LOGGING = true;
 
-// Path to sales data
-const SALES_FILE = path.join(process.cwd(), "sales.json");
-
-// (The helper functions like loadSales, saveSales, mapColorToHex, etc. remain the same)
+// (Helper functions like loadSales, saveSales, etc. remain the same)
 function loadSales() {
   if (!fs.existsSync(SALES_FILE)) return [];
   try {
@@ -67,11 +63,20 @@ async function collectItems() {
         const proxy = getRandomProxy();
         console.log(`Using proxy: ${proxy.host}:${proxy.port}`);
 
-        const browser = await chromium.launch({ headless: true });
+        // ** MODIFIED ** Added headful, slowMo, and args for stealth
+        const browser = await chromium.launch({ 
+            headless: false, 
+            slowMo: 50, // Adds a 50ms delay to actions to seem more human
+            args: ['--start-maximized'] 
+        });
+
+        // ** MODIFIED ** Added locale, timezone, and realistic viewport
         const context = await browser.newContext({
             proxy: { server: `http://${proxy.host}:${proxy.port}`, username: proxy.user, password: proxy.pass },
             userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
-            viewport: { width: 1280, height: 800 },
+            viewport: { width: 1920, height: 1080 },
+            locale: 'en-GB',
+            timezoneId: 'Europe/London',
         });
         const page = await context.newPage();
         
@@ -81,24 +86,22 @@ async function collectItems() {
                 const currentUrl = `${VINTED_CATALOG_URL}&page=${pageNumber}`;
                 console.log(`Scanning Page ${pageNumber}... | Collected: ${collectedItemData.length}/${BATCH_SIZE}`);
                 
-                // ** MODIFIED ** Switched to 'networkidle' for more reliable page loads
-                await page.goto(currentUrl, { waitUntil: "networkidle", timeout: 45000 });
+                await page.goto(currentUrl, { waitUntil: "domcontentloaded", timeout: 45000 });
 
-                // ** NEW ** Human-like interaction: Handle cookie banner
                 try {
                     const cookieButton = await page.waitForSelector('#onetrust-accept-btn-handler', { timeout: 5000 });
                     if (cookieButton) {
                         console.log("Cookie banner found. Accepting...");
                         await cookieButton.click();
-                        await page.waitForTimeout(1000); // Wait a moment after clicking
+                        await page.waitForTimeout(1000); 
                     }
                 } catch (e) {
-                    console.log("No cookie banner found or it timed out.");
+                    // This is fine, it just means the banner wasn't there
                 }
 
                 const pageTitle = await page.title();
-                if (pageTitle.toLowerCase().includes("are you a human")) {
-                    console.log(`[!!!] CAPTCHA detected on page ${pageNumber}. The proxy is likely blocked. Breaking to retry.`);
+                if (pageTitle.toLowerCase().includes("are you a human") || pageTitle.toLowerCase().includes("just a moment...")) {
+                    console.log(`[!!!] CAPTCHA or block page detected. The proxy is blocked. Breaking to retry.`);
                     break;
                 }
                 
@@ -106,7 +109,7 @@ async function collectItems() {
                 const pageItems = await page.$$('div[data-testid="grid-item"]');
 
                 if (pageItems.length === 0) {
-                    console.log(`Page ${pageNumber} loaded, but no items found. Stopping pagination.`);
+                    console.log(`Page ${pageNumber} loaded, but no items found. This may indicate a shadow-ban. Stopping pagination.`);
                     break;
                 }
                 
@@ -146,6 +149,7 @@ async function collectItems() {
     return collectedItemData;
 }
 
+// The item checking logic remains the same.
 async function checkSingleItem(page, item) {
     if (item.sold) return;
     try {
@@ -186,7 +190,7 @@ async function checkSingleItem(page, item) {
     }
 }
 
-// === MAIN LOOP ===
+// The main loop and worker pool logic remain the same.
 (async () => {
     while (true) {
         const collectedData = await collectItems();
@@ -223,7 +227,7 @@ async function checkSingleItem(page, item) {
                 }
             };
             
-            const browser = await chromium.launch({ headless: true });
+            const browser = await chromium.launch({ headless: false }); // Run checkers in headful mode too
             const contexts = [];
             const workerPromises = [];
 
@@ -232,6 +236,8 @@ async function checkSingleItem(page, item) {
                 const context = await browser.newContext({
                     proxy: { server: `http://${proxy.host}:${proxy.port}`, username: proxy.user, password: proxy.pass },
                     userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
+                    locale: 'en-GB',
+                    timezoneId: 'Europe/London',
                 });
                 const page = await context.newPage();
                 contexts.push(context);
@@ -240,9 +246,6 @@ async function checkSingleItem(page, item) {
             
             await Promise.all(workerPromises);
 
-            for (const context of contexts) {
-                await context.close();
-            }
             await browser.close();
         };
 
