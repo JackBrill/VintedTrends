@@ -294,4 +294,160 @@ class VintedDashboard {
       const bIsNumeric = !isNaN(parseFloat(b)) && isFinite(b);
 
       if (aIsOrdered && bIsOrdered) return sizeOrder[aUpper] - sizeOrder[bUpper];
-      if (aIs
+      if (aIsNumeric && bIsNumeric) return parseFloat(a) - parseFloat(b);
+      if (aIsOrdered && !bIsOrdered) return -1;
+      if (!aIsOrdered && bIsOrdered) return 1;
+      if (aIsNumeric && !bIsNumeric) return -1;
+      if (!aIsNumeric && bIsNumeric) return 1;
+      return a.localeCompare(b);
+    });
+  }
+
+  // API and Data Management
+  async fetchSales() {
+    try {
+      console.log('Fetching sales data from /api/sales...');
+      const res = await fetch("/api/sales");
+      
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      
+      const salesData = await res.json();
+      console.log(`Loaded ${salesData.length} sales from sales.json`);
+      
+      this.allSales = salesData;
+      this.lastUpdateTime = new Date();
+      this.populateFilters();
+      this.renderSales();
+    } catch (err) {
+      console.error("Failed to fetch sales:", err);
+      this.salesContainer.innerHTML = 
+        `<div class="col-span-full text-center py-12 text-destructive">
+          <h2 class="text-xl font-semibold mb-2">Error loading sales data</h2>
+          <p class="text-sm text-muted-foreground">Check console for details. Make sure the server is running.</p>
+        </div>`;
+    }
+  }
+
+  // Event Listeners
+  setupEventListeners() {
+    // Search
+    if (this.searchBar) {
+      this.searchBar.addEventListener('input', (e) => {
+        this.searchQuery = e.target.value;
+        this.renderSales();
+      });
+    }
+
+    // Sort
+    if (this.sortOptions) {
+      this.sortOptions.addEventListener('change', (e) => {
+        this.currentSort = e.target.value;
+        this.renderSales();
+      });
+    }
+
+    // Reset filters
+    if (this.resetFiltersBtn) {
+      this.resetFiltersBtn.addEventListener('click', () => {
+        if (this.searchBar) {
+          this.searchBar.value = '';
+          this.searchQuery = '';
+        }
+        
+        this.currentSort = 'newest';
+        if (this.sortOptions) this.sortOptions.value = 'newest';
+        
+        this.currentFilters = { brand: [], color: [], size: [] };
+        
+        // Reset filter button states
+        ['brand', 'color', 'size'].forEach(type => {
+          const btnText = document.getElementById(`${type}FilterBtnText`);
+          const btn = document.getElementById(`${type}FilterBtn`);
+          if (btnText) btnText.textContent = type.charAt(0).toUpperCase() + type.slice(1);
+          if (btn) btn.classList.remove('filter-btn-active');
+        });
+        
+        this.populateFilters();
+        this.renderSales();
+      });
+    }
+
+    // Filter dropdowns
+    ['brand', 'color', 'size'].forEach(filterType => {
+      this.setupFilter(filterType);
+    });
+
+    // Close dropdowns on outside click
+    window.addEventListener('click', () => {
+      document.querySelectorAll('.filter-dropdown').forEach(d => d.classList.add('hidden'));
+    });
+    
+    document.querySelectorAll('.filter-dropdown').forEach(d => {
+      d.addEventListener('click', e => e.stopPropagation());
+    });
+
+    // Category links (for future implementation)
+    document.querySelectorAll('.category-link').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const category = e.target.dataset.category;
+        console.log(`Category filter clicked: ${category} (not implemented yet)`);
+        // TODO: Implement category filtering when multiple categories are tracked
+      });
+    });
+  }
+
+  setupFilter(filterType) {
+    const btn = document.getElementById(`${filterType}FilterBtn`);
+    const dropdown = document.getElementById(`${filterType}FilterDropdown`);
+    const list = document.getElementById(`${filterType}FilterList`);
+    const applyBtn = document.getElementById(`apply${filterType.charAt(0).toUpperCase() + filterType.slice(1)}Filter`);
+    const btnText = document.getElementById(`${filterType}FilterBtnText`);
+
+    if (!btn || !dropdown || !list || !applyBtn || !btnText) {
+      console.warn(`Filter elements missing for ${filterType}`);
+      return;
+    }
+
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.querySelectorAll('.filter-dropdown').forEach(d => {
+        if (d !== dropdown) d.classList.add('hidden');
+      });
+      dropdown.classList.toggle('hidden');
+    });
+
+    applyBtn.addEventListener('click', () => {
+      const checked = list.querySelectorAll('input:checked');
+      this.currentFilters[filterType] = Array.from(checked).map(cb => cb.value);
+      dropdown.classList.add('hidden');
+      
+      const count = this.currentFilters[filterType].length;
+      btnText.textContent = `${filterType.charAt(0).toUpperCase() + filterType.slice(1)}${count > 0 ? ` (${count})` : ''}`;
+      btn.classList.toggle('filter-btn-active', count > 0);
+      
+      this.renderSales();
+    });
+  }
+
+  // Initialize
+  init() {
+    console.log('Initializing VintedTrends Dashboard...');
+    this.setupEventListeners();
+    this.fetchSales();
+    
+    // Auto-refresh every 30 seconds to pick up new sales
+    setInterval(() => {
+      console.log('Auto-refreshing sales data...');
+      this.fetchSales();
+    }, 30000);
+  }
+}
+
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOM loaded, starting VintedTrends Dashboard...');
+  new VintedDashboard();
+});
