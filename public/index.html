@@ -73,16 +73,20 @@
     </script>
 </head>
 
-<body class="text-secondary-foreground">
-    <header class="bg-card/95 backdrop-blur-sm border-b sticky top-0 z-40 shadow-sm">
-        <div class="container mx-auto px-4 h-16 flex items-center justify-between gap-6">
-            <h1 class="font-title text-2xl md:text-3xl font-bold text-primary">VinTrends</h1>
-            <div class="flex items-center gap-4">
-                <nav class="hidden md:flex items-center gap-2">
-                    <a href="#" class="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors">Mens</a>
-                    <a href="#" class="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors">Womens</a>
-                    <a href="#" class="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors">Shoes</a>
-                </nav>
+<body class="text-secondary-foreground pt-16">
+    <header class="bg-card/95 backdrop-blur-sm border-b fixed top-0 w-full z-40 shadow-sm">
+        <div class="container mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex-1 flex justify-start">
+                 <h1 class="font-title text-2xl md:text-3xl font-bold text-primary">VinTrends</h1>
+            </div>
+
+            <nav class="hidden md:flex items-center gap-6">
+                <a href="#" class="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors">Mens</a>
+                <a href="#" class="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors">Womens</a>
+                <a href="#" class="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors">Shoes</a>
+            </nav>
+
+            <div class="flex-1 flex justify-end">
                 <div class="relative">
                     <svg class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                     <input type="text" id="searchBar" placeholder="Search items..." class="bg-muted border-none rounded-full py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-primary w-full sm:w-64 text-sm">
@@ -148,7 +152,8 @@
         </div>
 
         <div id="loadingState" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-6">
-            <div class="bg-card border rounded-lg overflow-hidden loading-pulse" v-for="i in 10" :key="i">
+            <div class="bg-card border rounded-lg overflow-hidden loading-pulse"
+                v-for="i in 10" :key="i">
                 <div class="w-full aspect-[3/4] bg-muted"></div>
                 <div class="p-3">
                     <div class="h-4 bg-muted rounded w-3/4 mb-2"></div>
