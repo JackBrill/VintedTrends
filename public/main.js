@@ -47,10 +47,14 @@ class VintedDashboard {
     return subtitle ? (subtitle.split('·')[0].trim().toUpperCase() || null) : null;
   }
 
-  extractBrand(subtitle) {
-    if (!subtitle) return null;
+  extractBrand(item) {
+    // If the item has a direct brand field, use that
+    if (item.brand) return item.brand;
+    
+    // Otherwise, try to extract from subtitle (fallback for older data)
+    if (!item.subtitle) return null;
     const conditionBlacklist = ['new with tags', 'new without tags', 'very good', 'good', 'satisfactory'];
-    const parts = subtitle.split('·').map(p => p.trim());
+    const parts = item.subtitle.split('·').map(p => p.trim());
     for (let i = 1; i < parts.length; i++) {
       if (parts[i] && !conditionBlacklist.includes(parts[i].toLowerCase())) {
         return parts[i];
@@ -159,7 +163,7 @@ class VintedDashboard {
     modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
     
     const priceStats = this.getPriceRangeStats(this.allSales);
-    const brands = [...new Set(this.allSales.map(item => this.extractBrand(item.subtitle)).filter(Boolean))];
+    const brands = [...new Set(this.allSales.map(item => this.extractBrand(item)).filter(Boolean))];
     const topBrands = brands.slice(0, 10);
     
     const validSaleTimes = this.allSales
@@ -247,7 +251,7 @@ class VintedDashboard {
     const headers = ['name', 'price', 'color_name', 'size', 'brand', 'sale_speed', 'sold_at', 'link'];
     const rows = data.map(item => {
       const size = this.extractSize(item.subtitle);
-      const brand = this.extractBrand(item.subtitle);
+      const brand = this.extractBrand(item);
       const saleSpeed = this.getSaleSpeed(item);
       
       return [
@@ -291,7 +295,7 @@ class VintedDashboard {
         (item.link && item.link.toLowerCase().includes(query)) ||
         (item.subtitle && item.subtitle.toLowerCase().includes(query));
 
-      const brand = this.extractBrand(item.subtitle);
+      const brand = this.extractBrand(item);
       const size = this.extractSize(item.subtitle);
       const color = item.color_name ? item.color_name.split(',')[0].trim() : null;
 
@@ -402,7 +406,7 @@ class VintedDashboard {
     const sizes = new Set();
 
     this.allSales.forEach(item => {
-      const brand = this.extractBrand(item.subtitle);
+      const brand = this.extractBrand(item);
       if (brand) brands.add(brand);
       
       const size = this.extractSize(item.subtitle);
@@ -504,29 +508,20 @@ class VintedDashboard {
       });
     }
 
+    // Export dropdown
+    const exportBtn = document.getElementById('exportBtn');
+    const exportDropdown = document.getElementById('exportDropdown');
+    if (exportBtn && exportDropdown) {
+      exportBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        exportDropdown.classList.toggle('hidden');
+      });
+    }
+
     // Reset filters
     if (this.resetFiltersBtn) {
       this.resetFiltersBtn.addEventListener('click', () => {
-        if (this.searchBar) {
-          this.searchBar.value = '';
-          this.searchQuery = '';
-        }
-        
-        this.currentSort = 'newest';
-        if (this.sortOptions) this.sortOptions.value = 'newest';
-        
-        this.currentFilters = { brand: [], color: [], size: [] };
-        
-        // Reset filter button states
-        ['brand', 'color', 'size'].forEach(type => {
-          const btnText = document.getElementById(`${type}FilterBtnText`);
-          const btn = document.getElementById(`${type}FilterBtn`);
-          if (btnText) btnText.textContent = type.charAt(0).toUpperCase() + type.slice(1);
-          if (btn) btn.classList.remove('filter-btn-active');
-        });
-        
-        this.populateFilters();
-        this.renderSales();
+        this.resetAllFilters();
       });
     }
 
@@ -538,6 +533,8 @@ class VintedDashboard {
     // Close dropdowns on outside click
     window.addEventListener('click', () => {
       document.querySelectorAll('.filter-dropdown').forEach(d => d.classList.add('hidden'));
+      const exportDropdown = document.getElementById('exportDropdown');
+      if (exportDropdown) exportDropdown.classList.add('hidden');
     });
     
     document.querySelectorAll('.filter-dropdown').forEach(d => {
@@ -605,5 +602,5 @@ class VintedDashboard {
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
   console.log('DOM loaded, starting VintedTrends Dashboard...');
-  new VintedDashboard();
+  window.vintedDashboard = new VintedDashboard();
 });
