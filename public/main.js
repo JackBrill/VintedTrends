@@ -47,30 +47,7 @@ class VintedDashboard {
     return subtitle ? (subtitle.split('·')[0].trim().toUpperCase() || null) : null;
   }
 
-  /**
-   * UPDATED: More intelligent brand extraction logic.
-   */
   extractBrand(item) {
-    // 1. Define a list of known brands to check against first.
-    // List longer names before shorter ones (e.g., 'Polo Ralph Lauren' before 'Ralph Lauren').
-    const KNOWN_BRANDS = [
-      'The North Face', 'Dr. Martens', 'New Balance', 'Stone Island',
-      'Carhartt WIP', 'Polo Ralph Lauren', 'Ralph Lauren', 'Calvin Klein',
-      'Tommy Hilfiger', 'Levi\'s', 'Stussy'
-      // You can easily add more multi-word brands to this list
-    ];
-
-    // 2. Check if the item name starts with any known brand (most accurate method).
-    if (item.name) {
-      const nameLower = item.name.toLowerCase();
-      for (const brand of KNOWN_BRANDS) {
-        if (nameLower.startsWith(brand.toLowerCase())) {
-          return brand; // Return the correctly cased brand name
-        }
-      }
-    }
-
-    // 3. If no known brand is found, try to extract from the subtitle.
     if (item.subtitle) {
       const parts = item.subtitle.split('·');
       if (parts.length > 1 && parts[1]) {
@@ -81,12 +58,9 @@ class VintedDashboard {
         }
       }
     }
-
-    // 4. As a last resort, fall back to the first word of the name.
     if (item.name) {
       return item.name.split(' ')[0];
     }
-
     return null;
   }
 
