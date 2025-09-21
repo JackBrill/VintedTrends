@@ -207,6 +207,10 @@ function getRandomProxy() {
 
           const interval = setInterval(async () => {
             if (isClosing) return;
+
+            // This is the new "heartbeat" log message
+            console.log(`[${category.name}] [Monitoring] Performing background check on items...`);
+
             const itemsToCheck = trackedItems.filter(p => !p.sold);
             for (let i = 0; i < itemsToCheck.length; i += CONCURRENT_CHECKS) {
               const batch = itemsToCheck.slice(i, i + CONCURRENT_CHECKS);
