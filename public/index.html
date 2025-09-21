@@ -185,15 +185,9 @@
       // Helper Functions
       const getSaleDurationInMs = item => (item.startedAt && item.soldAt ? new Date(item.soldAt) - new Date(item.startedAt) : Infinity);
       const extractSize = subtitle => subtitle ? (subtitle.split('·')[0].trim().toUpperCase() || null) : null;
-      const extractBrand = subtitle => {
-        if (!subtitle) return null;
-        const conditionBlacklist = ['new with tags', 'new without tags', 'very good', 'good', 'satisfactory'];
-        const parts = subtitle.split('·').map(p => p.trim());
-        for (let i = 1; i < parts.length; i++) {
-          if (parts[i] && !conditionBlacklist.includes(parts[i].toLowerCase())) return parts[i];
-        }
-        return null;
-      };
+      
+      // FIXED: Extract brand from the 'name' field instead of 'subtitle'
+      const extractBrand = item => item.name ? item.name.trim() : null;
       
       const sortSizes = sizes => {
           const sizeOrder = {'XXS': 1, 'XS': 2, 'S': 3, 'M': 4, 'L': 5, 'XL': 6, 'XXL': 7, '2XL': 7, 'XXXL': 8, '3XL': 8, 'XXXXL': 9, '4XL': 9, '5XL': 10};
@@ -209,7 +203,6 @@
           });
       };
 
-      // ** FIXED ** Re-added this function to map colors to hex codes
       function mapColorNameToHex(colorName) {
         if (!colorName) return null;
         const firstColor = colorName.split(',')[0].trim().toLowerCase();
@@ -229,7 +222,7 @@
         const filteredSales = allSales.filter(item => {
           const query = searchQuery.toLowerCase();
           const searchMatch = !query || (item.name && item.name.toLowerCase().includes(query)) || (item.link && item.link.toLowerCase().includes(query));
-          const brand = extractBrand(item.subtitle);
+          const brand = extractBrand(item);
           const size = extractSize(item.subtitle);
           const color = item.color_name ? item.color_name.split(',')[0].trim() : null;
           const brandMatch = currentFilters.brand.length === 0 || (brand && currentFilters.brand.includes(brand));
@@ -252,7 +245,6 @@
           return;
         }
 
-        // ** FIXED ** Restored the detailed HTML generation for each card
         salesContainer.innerHTML = sortedSales.map(item => {
             const saleSpeed = (() => {
                 if (item.startedAt && item.soldAt) {
@@ -333,7 +325,7 @@
       function populateFilters() {
         const brands = new Set(), colors = new Set(), sizes = new Set();
         allSales.forEach(item => {
-          const brand = extractBrand(item.subtitle); if (brand) brands.add(brand);
+          const brand = extractBrand(item); if (brand) brands.add(brand);
           const size = extractSize(item.subtitle); if (size) sizes.add(size);
           const color = item.color_name ? item.color_name.split(',')[0].trim() : null; if(color) colors.add(color);
         });
@@ -349,11 +341,53 @@
         document.getElementById('sizeFilterList').innerHTML = sortSizes([...sizes]).map(s => createCheckbox('size', s, currentFilters.size.includes(s))).join('');
       }
 
-      // Data Fetching
+      // Data Fetching - Using mock data for demonstration
       async function fetchSales() {
         try {
-          const res = await fetch(`${window.location.origin}/api/sales`);
-          allSales = await res.json();
+          // Mock data for testing - replace with your actual API call
+          const mockData = [
+            {
+              "name": "Nike",
+              "subtitle": "L · Very good",
+              "price": "£5.00",
+              "link": "https://www.vinted.co.uk/items/7133278307-nike-tracksuit-bottom?referrer=catalog",
+              "sold": true,
+              "startedAt": "2025-09-21T11:49:30.451Z",
+              "soldAt": "2025-09-21T11:52:17.121Z",
+              "image": "https://images1.vinted.net/t/01_02631_Z1tH7nhEMFnVWHdVq54nLYrb/f800/1758446885.jpeg?s=1b54963b736ed72115304b6260fe6aff216f3feb",
+              "color_name": "Grey",
+              "color_hex": "#808080"
+            },
+            {
+              "name": "Adidas",
+              "subtitle": "M · Good",
+              "price": "£8.00",
+              "link": "https://www.vinted.co.uk/items/example",
+              "sold": true,
+              "startedAt": "2025-09-21T10:30:00.000Z",
+              "soldAt": "2025-09-21T10:45:00.000Z",
+              "image": "https://via.placeholder.com/300",
+              "color_name": "Black",
+              "color_hex": "#000000"
+            },
+            {
+              "name": "Puma",
+              "subtitle": "S · New with tags",
+              "price": "£12.00",
+              "link": "https://www.vinted.co.uk/items/example2",
+              "sold": true,
+              "startedAt": "2025-09-21T09:00:00.000Z",
+              "soldAt": "2025-09-21T09:30:00.000Z",
+              "image": "https://via.placeholder.com/300",
+              "color_name": "Blue",
+              "color_hex": "#0000FF"
+            }
+          ];
+          
+          // Replace this with: const res = await fetch(`${window.location.origin}/api/sales`);
+          // allSales = await res.json();
+          allSales = mockData;
+          
           populateFilters();
           renderSales();
         } catch (err) {
@@ -388,5 +422,3 @@
         fetchSales();
       });
     </script>
-  </body>
-</html>
