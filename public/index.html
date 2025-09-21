@@ -98,10 +98,10 @@
           <h1 class="font-title text-2xl md:text-3xl font-bold text-primary">VinTrends</h1>
         </div>
         <nav class="hidden md:flex items-center gap-1 lg:gap-4">
-          <a href="#" data-category="Mens Clothing" class="category-link text-foreground font-semibold hover:text-primary transition-colors px-2 py-2 rounded-md text-sm lg:text-base">Mens Clothing</a>
-          <a href="#" data-category="Womens Clothing" class="category-link text-foreground font-semibold hover:text-primary transition-colors px-2 py-2 rounded-md text-sm lg:text-base">Womens Clothing</a>
-          <a href="#" data-category="Shoes" class="category-link text-foreground font-semibold hover:text-primary transition-colors px-2 py-2 rounded-md text-sm lg:text-base">Shoes</a>
-          <a href="#" data-category="Electronics" class="category-link text-foreground font-semibold hover:text-primary transition-colors px-2 py-2 rounded-md text-sm lg:text-base">Electronics</a>
+          <a href="#" data-category="Mens Clothing" class="category-link text-foreground font-semibold hover:text-primary transition-colors px-2 py-1 rounded-md text-sm lg:text-base">Mens Clothing</a>
+          <a href="#" data-category="Womens Clothing" class="category-link text-foreground font-semibold hover:text-primary transition-colors px-2 py-1 rounded-md text-sm lg:text-base">Womens Clothing</a>
+          <a href="#" data-category="Shoes" class="category-link text-foreground font-semibold hover:text-primary transition-colors px-2 py-1 rounded-md text-sm lg:text-base">Shoes</a>
+          <a href="#" data-category="Electronics" class="category-link text-foreground font-semibold hover:text-primary transition-colors px-2 py-1 rounded-md text-sm lg:text-base">Electronics</a>
         </nav>
         <div class="relative">
           <input type="text" id="searchBar" placeholder="Search items or links..." class="bg-secondary border border-gray-300 rounded-full py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent w-full sm:w-64 transition-all duration-300">
@@ -129,7 +129,7 @@
 
       <div class="flex flex-col md:flex-row md:justify-between md:items-center md:flex-nowrap gap-4 mb-4">
         <div class="flex items-center gap-3">
-          <h2 id="categoryTitle" class="text-lg md:text-xl font-bold text-gray-800">Latest Sales</h2>
+          <h2 id="categoryTitle" class="text-lg md:text-xl font-bold text-gray-800 flex-shrink-0">Latest Sales</h2>
           <div id="statsDisplay" class="text-sm text-muted-foreground hidden md:block"></div>
         </div>
         
@@ -148,7 +148,7 @@
           </div>
 
           <div class="relative">
-            <button id="colorFilterBtn" class="filter-btn flex items-center gap-2 bg-white rounded-full border border-gray-300 text-gray-700 py-2 px-4 focus:outline-none hover:border-gray-400 transition-colors text-sm">
+            <button id="colorFilterBtn" class="filter-btn flex items-center gap-2 bg-white rounded-full border border-gray-300 text-gray-700 py-1 px-4 focus:outline-none hover:border-gray-400 transition-colors text-sm">
               <span id="colorFilterBtnText">Colour</span>
               <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
             </button>
@@ -160,7 +160,7 @@
           </div>
 
           <div class="relative">
-            <button id="sizeFilterBtn" class="filter-btn flex items-center gap-2 bg-white rounded-full border border-gray-300 text-gray-700 py-2 px-4 focus:outline-none hover:border-gray-400 transition-colors text-sm">
+            <button id="sizeFilterBtn" class="filter-btn flex items-center gap-2 bg-white rounded-full border border-gray-300 text-gray-700 py-1 px-4 focus:outline-none hover:border-gray-400 transition-colors text-sm">
               <span id="sizeFilterBtnText">Size</span>
               <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
             </button>
@@ -171,7 +171,7 @@
             </div>
           </div>
 
-          <select id="sortOptions" class="bg-transparent rounded-full border-2 border-primary text-primary font-semibold py-2 px-4 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 transition-colors text-sm">
+          <select id="sortOptions" class="bg-transparent rounded-full border-2 border-primary text-primary font-semibold py-1 px-4 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 transition-colors text-sm">
             <option value="newest" selected>Most Recent</option>
             <option value="time_asc">Fastest Sales</option>
             <option value="price_asc">Price: Low to High</option>
