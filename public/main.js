@@ -1,4 +1,4 @@
-// Enhanced main.js - With Corrected Active Filter Tags
+// Enhanced main.js - With Active Filter Tags
 class VintedDashboard {
   constructor() {
     this.salesContainer = document.getElementById("salesContainer");
@@ -86,9 +86,6 @@ class VintedDashboard {
     this.statsDisplay.innerHTML = `<span class="font-semibold">${filteredSales.length}</span> items • Avg: <span class="font-semibold">${avgSaleTimeFormatted}</span> • Fastest: <span class="font-semibold text-primary">${fastestFormatted}</span> • Avg Price: <span class="font-semibold">£${avgPrice}</span>`;
   }
 
-  /**
-   * Main orchestrator function. Filters data, re-populates dropdowns, sorts, and renders.
-   */
   renderSales() {
     this.loadingState.classList.add('hidden');
     this.salesContainer.classList.remove('hidden');
@@ -98,22 +95,12 @@ class VintedDashboard {
         return;
     }
 
-    // 1. Get the list of items that match the current filters. This list will be rendered.
     const filteredSales = this.getFilteredSales();
-
-    // 2. Render the active filter tags based on the current state.
     this.renderActiveFilters();
-
-    // 3. Re-populate the filter dropdowns to be context-aware.
     this.populateFilters();
-
-    // 4. Sort the filtered list.
     const sortedSales = this.sortSales(filteredSales);
-
-    // 5. Update the on-screen stats.
     this.updateStats(sortedSales);
 
-    // 6. Render the final list of cards.
     if (sortedSales.length === 0) {
         this.salesContainer.innerHTML = `<p class="col-span-full text-center text-muted-foreground py-12">No items match your filters.</p>`;
         return;
@@ -130,54 +117,33 @@ class VintedDashboard {
     }).join("");
   }
 
-  /**
-   * Renders the active filter tags above the sales grid.
-   */
   renderActiveFilters() {
-    this.activeFiltersContainer.innerHTML = ''; // Clear previous tags
-
+    this.activeFiltersContainer.innerHTML = '';
     Object.entries(this.currentFilters).forEach(([type, values]) => {
         values.forEach(value => {
             const tag = document.createElement('div');
             tag.className = 'flex items-center gap-2 bg-primary/10 text-primary-hover font-semibold text-sm px-3 py-1 rounded-full';
-            tag.innerHTML = `
-                <span>${value}</span>
-                <button class="remove-filter-btn" data-filter-type="${type}" data-filter-value="${value}">
-                    <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-            `;
+            tag.innerHTML = `<span>${value}</span><button class="remove-filter-btn" data-filter-type="${type}" data-filter-value="${value}"><svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>`;
             this.activeFiltersContainer.appendChild(tag);
         });
     });
   }
 
-  /**
-   * Returns a filtered list of sales based on current state.
-   * Can optionally ignore a specific filter type, which is useful for populating dropdowns.
-   * @param {('brand'|'color'|'size'|null)} ignoreFilterType - The filter type to ignore.
-   */
   getFilteredSales(ignoreFilterType = null) {
     const query = this.searchQuery.toLowerCase();
-
     return this.allSales.filter(item => {
         const searchMatch = !query || (item.name && item.name.toLowerCase().includes(query)) || (item.link && item.link.toLowerCase().includes(query)) || (item.subtitle && item.subtitle.toLowerCase().includes(query));
         if (!searchMatch) return false;
-
         const brand = this.extractBrand(item);
         const size = this.extractSize(item.subtitle);
         const color = item.color_name ? item.color_name.split(',')[0].trim() : null;
-
         const brandMatch = ignoreFilterType === 'brand' || this.currentFilters.brand.length === 0 || (brand && this.currentFilters.brand.includes(brand));
         const colorMatch = ignoreFilterType === 'color' || this.currentFilters.color.length === 0 || (color && this.currentFilters.color.includes(color));
         const sizeMatch = ignoreFilterType === 'size' || this.currentFilters.size.length === 0 || (size && this.currentFilters.size.includes(size));
-        
         return brandMatch && colorMatch && sizeMatch;
     });
   }
   
-  /**
-   * Re-populates all filter dropdowns based on context-aware item lists.
-   */
   populateFilters() {
     const itemsForBrandFilter = this.getFilteredSales('brand');
     const itemsForColorFilter = this.getFilteredSales('color');
@@ -277,7 +243,6 @@ class VintedDashboard {
             const { filterType, filterValue } = removeBtn.dataset;
             this.currentFilters[filterType] = this.currentFilters[filterType].filter(val => val !== filterValue);
             
-            // Also update the main filter button text
             const btnText = document.getElementById(`${filterType}FilterBtnText`);
             const count = this.currentFilters[filterType].length;
             btnText.textContent = `${filterType.charAt(0).toUpperCase() + filterType.slice(1)}${count > 0 ? ` (${count})` : ''}`;
@@ -318,7 +283,7 @@ class VintedDashboard {
       const list = document.getElementById(`${filterType}FilterList`);
       const btnText = document.getElementById(`${filterType}FilterBtnText`);
       const checked = list.querySelectorAll('input:checked');
-      this.currentFilters[filterType].length = 0; // Clear the array first
+      this.currentFilters[filterType].length = 0;
       this.currentFilters[filterType].push(...Array.from(checked).map(cb => cb.value));
       dropdown.classList.add('hidden');
       const count = this.currentFilters[filterType].length;
