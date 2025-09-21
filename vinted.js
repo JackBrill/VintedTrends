@@ -10,7 +10,7 @@ const BATCH_SIZE = 200; // ** UPDATED ** You can now set this higher
 const MAX_PAGES_TO_SCAN = 10; // ** NEW ** Safety limit for pagination
 const CHECK_INTERVAL = 60 * 1000; // 60 seconds
 const BATCH_DURATION = 5 * 60 * 1000; // 5 minutes
-const CONCURRENT_CHECKS = 10; // Number of items to check at once
+const CONCURRENT_CHECKS = 30; // Number of items to check at once
 const VERBOSE_LOGGING = true;
 
 // Path to sales data
