@@ -93,20 +93,176 @@ class VintedDashboard {
     return colorMap[firstColor] || '#CCCCCC';
   }
 
-  // Stats calculation
+  // Stats calculation with enhanced metrics
   updateStats(filteredSales) {
-    if (!this.statsDisplay || filteredSales.length === 0) return;
+    if (!this.statsDisplay) return;
     
-    const avgSaleTime = filteredSales
+    if (filteredSales.length === 0) {
+      this.statsDisplay.textContent = 'No items match filters';
+      return;
+    }
+    
+    const validSaleTimes = filteredSales
       .map(item => this.getSaleDurationInMs(item))
-      .filter(time => time !== Infinity)
-      .reduce((sum, time, _, arr) => sum + time / arr.length, 0);
+      .filter(time => time !== Infinity);
+    
+    const avgSaleTime = validSaleTimes.length > 0 ? 
+      validSaleTimes.reduce((sum, time) => sum + time, 0) / validSaleTimes.length : 0;
     
     const avgSaleTimeFormatted = avgSaleTime > 0 ? 
       `${Math.floor(avgSaleTime / 60000)}m ${Math.floor((avgSaleTime % 60000) / 1000)}s` : 
       'N/A';
     
-    this.statsDisplay.textContent = `${filteredSales.length} items • Avg sale time: ${avgSaleTimeFormatted}`;
+    // Calculate price stats
+    const prices = filteredSales
+      .map(item => parseFloat(item.price.replace(/[^0-9.-]+/g, "") || "0"))
+      .filter(price => price > 0);
+    
+    const avgPrice = prices.length > 0 ? 
+      (prices.reduce((sum, price) => sum + price, 0) / prices.length).toFixed(2) : 0;
+    
+    // Find fastest sale
+    const fastestSale = Math.min(...validSaleTimes);
+    const fastestFormatted = fastestSale !== Infinity ? 
+      `${Math.floor(fastestSale / 60000)}m ${Math.floor((fastestSale % 60000) / 1000)}s` : 'N/A';
+    
+    this.statsDisplay.innerHTML = `
+      <span class="font-semibold">${filteredSales.length}</span> items • 
+      Avg: <span class="font-semibold">${avgSaleTimeFormatted}</span> • 
+      Fastest: <span class="font-semibold text-green-600">${fastestFormatted}</span> • 
+      Avg Price: <span class="font-semibold">£${avgPrice}</span>
+    `;
+  }
+
+  // Price range analysis
+  getPriceRangeStats(sales) {
+    const prices = sales
+      .map(item => parseFloat(item.price.replace(/[^0-9.-]+/g, "") || "0"))
+      .filter(price => price > 0)
+      .sort((a, b) => a - b);
+    
+    if (prices.length === 0) return null;
+    
+    return {
+      min: prices[0],
+      max: prices[prices.length - 1],
+      median: prices[Math.floor(prices.length / 2)],
+      q1: prices[Math.floor(prices.length * 0.25)],
+      q3: prices[Math.floor(prices.length * 0.75)]
+    };
+  }
+
+  // Show detailed stats modal
+  showStatsModal() {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    
+    const priceStats = this.getPriceRangeStats(this.allSales);
+    const brands = [...new Set(this.allSales.map(item => this.extractBrand(item.subtitle)).filter(Boolean))];
+    const topBrands = brands.slice(0, 10);
+    
+    const validSaleTimes = this.allSales
+      .map(item => this.getSaleDurationInMs(item))
+      .filter(time => time !== Infinity);
+    
+    const fastSales = validSaleTimes.filter(time => time < 300000).length; // Under 5 minutes
+    const slowSales = validSaleTimes.filter(time => time > 3600000).length; // Over 1 hour
+    
+    modal.innerHTML = `
+      <div class="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+        <div class="p-6">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-2xl font-bold text-gray-900">Sales Analytics</h2>
+            <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+          
+          <div class="grid md:grid-cols-2 gap-6">
+            <div class="space-y-4">
+              <h3 class="font-semibold text-lg">Price Analysis</h3>
+              ${priceStats ? `
+                <div class="bg-gray-50 p-4 rounded">
+                  <div class="grid grid-cols-2 gap-2 text-sm">
+                    <div>Min Price: <span class="font-semibold">£${priceStats.min}</span></div>
+                    <div>Max Price: <span class="font-semibold">£${priceStats.max}</span></div>
+                    <div>Median: <span class="font-semibold">£${priceStats.median}</span></div>
+                    <div>Q1: <span class="font-semibold">£${priceStats.q1}</span></div>
+                  </div>
+                </div>
+              ` : '<p class="text-gray-500">No price data available</p>'}
+            </div>
+            
+            <div class="space-y-4">
+              <h3 class="font-semibold text-lg">Sale Speed</h3>
+              <div class="bg-gray-50 p-4 rounded">
+                <div class="space-y-2 text-sm">
+                  <div>Total Sales: <span class="font-semibold">${this.allSales.length}</span></div>
+                  <div>Fast Sales (&lt;5min): <span class="font-semibold text-green-600">${fastSales}</span></div>
+                  <div>Slow Sales (&gt;1hr): <span class="font-semibold text-orange-600">${slowSales}</span></div>
+                  <div>Success Rate: <span class="font-semibold">${((fastSales / validSaleTimes.length) * 100).toFixed(1)}%</span></div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="space-y-4 md:col-span-2">
+              <h3 class="font-semibold text-lg">Top Brands</h3>
+              <div class="bg-gray-50 p-4 rounded">
+                <div class="flex flex-wrap gap-2">
+                  ${topBrands.map(brand => 
+                    `<span class="bg-primary text-white px-3 py-1 rounded-full text-sm">${brand}</span>`
+                  ).join('')}
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="mt-6 pt-4 border-t">
+            <p class="text-sm text-gray-500">Last updated: ${this.lastUpdateTime ? this.lastUpdateTime.toLocaleString() : 'Never'}</p>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+  }
+
+  // Export data functionality
+  exportData(format = 'json') {
+    const dataStr = format === 'csv' ? this.convertToCSV(this.allSales) : JSON.stringify(this.allSales, null, 2);
+    const dataBlob = new Blob([dataStr], { type: format === 'csv' ? 'text/csv' : 'application/json' });
+    
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(dataBlob);
+    link.download = `vinted-sales-${new Date().toISOString().split('T')[0]}.${format}`;
+    link.click();
+  }
+
+  convertToCSV(data) {
+    if (!data.length) return '';
+    
+    const headers = ['name', 'price', 'color_name', 'size', 'brand', 'sale_speed', 'sold_at', 'link'];
+    const rows = data.map(item => {
+      const size = this.extractSize(item.subtitle);
+      const brand = this.extractBrand(item.subtitle);
+      const saleSpeed = this.getSaleSpeed(item);
+      
+      return [
+        item.name || '',
+        item.price || '',
+        item.color_name || '',
+        size || '',
+        brand || '',
+        saleSpeed || '',
+        item.soldAt || '',
+        item.link || ''
+      ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(',');
+    });
+    
+    return [headers.join(','), ...rows].join('\n');
   }
 
   // Rendering Logic
