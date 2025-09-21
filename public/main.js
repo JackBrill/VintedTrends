@@ -1,4 +1,4 @@
-// Enhanced main.js - Complete VintedTrends Dashboard
+// Enhanced main.js - With Dynamic/Cascading Filters
 class VintedDashboard {
   constructor() {
     this.salesContainer = document.getElementById("salesContainer");
@@ -7,7 +7,6 @@ class VintedDashboard {
     this.resetFiltersBtn = document.getElementById("resetFiltersBtn");
     this.statsDisplay = document.getElementById("statsDisplay");
     
-    // New Sort Dropdown elements
     this.sortBtn = document.getElementById('sortBtn');
     this.sortBtnText = document.getElementById('sortBtnText');
     this.sortDropdown = document.getElementById('sortDropdown');
@@ -86,67 +85,109 @@ class VintedDashboard {
     this.statsDisplay.innerHTML = `<span class="font-semibold">${filteredSales.length}</span> items • Avg: <span class="font-semibold">${avgSaleTimeFormatted}</span> • Fastest: <span class="font-semibold text-primary">${fastestFormatted}</span> • Avg Price: <span class="font-semibold">£${avgPrice}</span>`;
   }
 
+  /**
+   * Main orchestrator function. Filters data, re-populates dropdowns, sorts, and renders.
+   */
   renderSales() {
     this.loadingState.classList.add('hidden');
     this.salesContainer.classList.remove('hidden');
 
     if (!this.allSales || this.allSales.length === 0) {
-      this.salesContainer.innerHTML = `<div class="col-span-full text-center py-12"><h2 class="text-xl font-semibold text-muted-foreground">No sold items recorded yet.</h2><p class="text-muted-foreground">The tracker is running. Sold items will appear here automatically.</p></div>`;
-      return;
+        this.salesContainer.innerHTML = `<div class="col-span-full text-center py-12"><h2 class="text-xl font-semibold text-muted-foreground">No sold items recorded yet.</h2><p class="text-muted-foreground">The tracker is running. Sold items will appear here automatically.</p></div>`;
+        return;
     }
 
-    const filteredSales = this.allSales.filter(item => {
-      const query = this.searchQuery.toLowerCase();
-      const searchMatch = !query || (item.name && item.name.toLowerCase().includes(query)) || (item.link && item.link.toLowerCase().includes(query)) || (item.subtitle && item.subtitle.toLowerCase().includes(query));
-      const brand = this.extractBrand(item);
-      const size = this.extractSize(item.subtitle);
-      const color = item.color_name ? item.color_name.split(',')[0].trim() : null;
-      const brandMatch = this.currentFilters.brand.length === 0 || (brand && this.currentFilters.brand.includes(brand));
-      const colorMatch = this.currentFilters.color.length === 0 || (color && this.currentFilters.color.includes(color));
-      const sizeMatch = this.currentFilters.size.length === 0 || (size && this.currentFilters.size.includes(size));
-      return searchMatch && brandMatch && colorMatch && sizeMatch;
-    });
+    // 1. Get the list of items that match the current filters. This list will be rendered.
+    const filteredSales = this.getFilteredSales();
 
-    const sortedSales = [...filteredSales].sort((a, b) => {
-      switch (this.currentSort) {
-        case 'time_asc': return this.getSaleDurationInMs(a) - this.getSaleDurationInMs(b);
-        case 'price_asc': return parseFloat(a.price.replace(/[^0-9.-]+/g, "") || "0") - parseFloat(b.price.replace(/[^0-9.-]+/g, "") || "0");
-        case 'price_desc': return parseFloat(b.price.replace(/[^0-9.-]+/g, "") || "0") - parseFloat(a.price.replace(/[^0-9.-]+/g, "") || "0");
-        default: return new Date(b.soldAt || 0) - new Date(a.soldAt || 0);
-      }
-    });
+    // 2. Re-populate the filter dropdowns to be context-aware.
+    this.populateFilters();
 
+    // 3. Sort the filtered list.
+    const sortedSales = this.sortSales(filteredSales);
+
+    // 4. Update the on-screen stats.
     this.updateStats(sortedSales);
 
+    // 5. Render the final list of cards.
     if (sortedSales.length === 0) {
-      this.salesContainer.innerHTML = `<p class="col-span-full text-center text-muted-foreground py-12">No items match your filters.</p>`;
-      return;
+        this.salesContainer.innerHTML = `<p class="col-span-full text-center text-muted-foreground py-12">No items match your filters.</p>`;
+        return;
     }
 
     this.salesContainer.innerHTML = sortedSales.map(item => {
-      const saleSpeed = this.getSaleSpeed(item);
-      const size = this.extractSize(item.subtitle);
-      const colorHex = this.mapColorNameToHex(item.color_name);
-      const soldTimeAgo = (() => { if (!item.soldAt) return ''; const seconds = Math.round((new Date() - new Date(item.soldAt)) / 1000); const minutes = Math.round(seconds / 60); const hours = Math.round(minutes / 60); const days = Math.round(hours / 24); if (seconds < 60) return `${seconds}s ago`; if (minutes < 60) return `${minutes}m ago`; if (hours < 24) return `${hours}h ago`; return `${days}d ago`; })();
-      const colorCircleHTML = colorHex ? `<div class="w-4 h-4 rounded-full ${colorHex.toUpperCase() === '#FFFFFF' ? 'border' : ''}" style="background-color: ${colorHex};" title="${item.color_name || 'Color'}"></div>` : '';
-      const sizeAndColorHTML = size || colorCircleHTML ? `<div class="flex items-center gap-1.5 flex-shrink-0">${size ? `<span class="text-xs font-bold text-gray-800 bg-gray-100 px-2 py-0.5 rounded">${size}</span>` : ''}${colorCircleHTML}</div>` : '';
-      return `<div class="bg-card text-card-foreground border rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300 flex flex-col"><a href="${item.link}" target="_blank" rel="noopener noreferrer" class="block relative group"><img src="${item.image || 'https://placehold.co/400x600/f1f5f9/94a3b8?text=Sold'}" alt="${item.name || 'Sold item'}" class="w-full aspect-[3/4] object-cover group-hover:opacity-90 transition-opacity" loading="lazy" onerror="this.src='https://placehold.co/400x600/f1f5f9/94a3b8?text=No+Image'" /></a><div class="p-3 flex flex-col flex-grow"><div class="flex justify-between items-start gap-2 mb-2"><p class="font-semibold text-sm line-clamp-2 leading-tight">${item.name || 'Untitled Item'}</p>${sizeAndColorHTML}</div><div class="flex justify-between items-center text-xs text-muted-foreground mb-2"><span class="truncate">${saleSpeed ? `Sold in: ${saleSpeed}` : ''}</span><span class="flex-shrink-0 ml-2">${soldTimeAgo}</span></div><div class="flex-grow"></div><p class="text-lg font-bold text-primary mb-3">${item.price || ''}</p><a href="${item.link}" target="_blank" rel="noopener noreferrer" class="block text-center w-full bg-transparent border border-primary text-primary font-bold py-2 px-4 rounded-md hover:bg-primary hover:text-primary-foreground transition-all duration-200 text-sm">View on Vinted</a></div></div>`;
+        const saleSpeed = this.getSaleSpeed(item);
+        const size = this.extractSize(item.subtitle);
+        const colorHex = this.mapColorNameToHex(item.color_name);
+        const soldTimeAgo = (() => { if (!item.soldAt) return ''; const seconds = Math.round((new Date() - new Date(item.soldAt)) / 1000); const minutes = Math.round(seconds / 60); const hours = Math.round(minutes / 60); const days = Math.round(hours / 24); if (seconds < 60) return `${seconds}s ago`; if (minutes < 60) return `${minutes}m ago`; if (hours < 24) return `${hours}h ago`; return `${days}d ago`; })();
+        const colorCircleHTML = colorHex ? `<div class="w-4 h-4 rounded-full ${colorHex.toUpperCase() === '#FFFFFF' ? 'border' : ''}" style="background-color: ${colorHex};" title="${item.color_name || 'Color'}"></div>` : '';
+        const sizeAndColorHTML = size || colorCircleHTML ? `<div class="flex items-center gap-1.5 flex-shrink-0">${size ? `<span class="text-xs font-bold text-gray-800 bg-gray-100 px-2 py-0.5 rounded">${size}</span>` : ''}${colorCircleHTML}</div>` : '';
+        return `<div class="bg-card text-card-foreground border rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300 flex flex-col"><a href="${item.link}" target="_blank" rel="noopener noreferrer" class="block relative group"><img src="${item.image || 'https://placehold.co/400x600/f1f5f9/94a3b8?text=Sold'}" alt="${item.name || 'Sold item'}" class="w-full aspect-[3/4] object-cover group-hover:opacity-90 transition-opacity" loading="lazy" onerror="this.src='https://placehold.co/400x600/f1f5f9/94a3b8?text=No+Image'" /></a><div class="p-3 flex flex-col flex-grow"><div class="flex justify-between items-start gap-2 mb-2"><p class="font-semibold text-sm line-clamp-2 leading-tight">${item.name || 'Untitled Item'}</p>${sizeAndColorHTML}</div><div class="flex justify-between items-center text-xs text-muted-foreground mb-2"><span class="truncate">${saleSpeed ? `Sold in: ${saleSpeed}` : ''}</span><span class="flex-shrink-0 ml-2">${soldTimeAgo}</span></div><div class="flex-grow"></div><p class="text-lg font-bold text-primary mb-3">${item.price || ''}</p><a href="${item.link}" target="_blank" rel="noopener noreferrer" class="block text-center w-full bg-transparent border border-primary text-primary font-bold py-2 px-4 rounded-md hover:bg-primary hover:text-primary-foreground transition-all duration-200 text-sm">View on Vinted</a></div></div>`;
     }).join("");
   }
 
-  populateFilters() {
-    const brandCounts = new Map(), colorCounts = new Map(), sizeCounts = new Map();
-    this.allSales.forEach(item => {
-      const brand = this.extractBrand(item);
-      if (brand) brandCounts.set(brand, (brandCounts.get(brand) || 0) + 1);
-      const size = this.extractSize(item.subtitle);
-      if (size) sizeCounts.set(size, (sizeCounts.get(size) || 0) + 1);
-      const color = item.color_name ? item.color_name.split(',')[0].trim() : null;
-      if (color) colorCounts.set(color, (colorCounts.get(color) || 0) + 1);
+  /**
+   * Returns a filtered list of sales based on current state.
+   * Can optionally ignore a specific filter type, which is useful for populating dropdowns.
+   * @param {('brand'|'color'|'size'|null)} ignoreFilterType - The filter type to ignore.
+   */
+  getFilteredSales(ignoreFilterType = null) {
+    const query = this.searchQuery.toLowerCase();
+
+    return this.allSales.filter(item => {
+        const searchMatch = !query || (item.name && item.name.toLowerCase().includes(query)) || (item.link && item.link.toLowerCase().includes(query)) || (item.subtitle && item.subtitle.toLowerCase().includes(query));
+        if (!searchMatch) return false;
+
+        const brand = this.extractBrand(item);
+        const size = this.extractSize(item.subtitle);
+        const color = item.color_name ? item.color_name.split(',')[0].trim() : null;
+
+        const brandMatch = this.currentFilters.brand.length === 0 || (brand && this.currentFilters.brand.includes(brand));
+        const colorMatch = this.currentFilters.color.length === 0 || (color && this.currentFilters.color.includes(color));
+        const sizeMatch = this.currentFilters.size.length === 0 || (size && this.currentFilters.size.includes(size));
+
+        if (ignoreFilterType === 'brand') return colorMatch && sizeMatch;
+        if (ignoreFilterType === 'color') return brandMatch && sizeMatch;
+        if (ignoreFilterType === 'size') return brandMatch && colorMatch;
+        
+        return brandMatch && colorMatch && sizeMatch;
     });
+  }
+  
+  /**
+   * Re-populates all filter dropdowns based on context-aware item lists.
+   */
+  populateFilters() {
+    // For each filter, get a list of items that ignores that filter's own selection
+    const itemsForBrandFilter = this.getFilteredSales('brand');
+    const itemsForColorFilter = this.getFilteredSales('color');
+    const itemsForSizeFilter = this.getFilteredSales('size');
+
+    // Calculate available options and counts from these context-aware lists
+    const brandCounts = new Map();
+    itemsForBrandFilter.forEach(item => {
+        const brand = this.extractBrand(item);
+        if (brand) brandCounts.set(brand, (brandCounts.get(brand) || 0) + 1);
+    });
+
+    const colorCounts = new Map();
+    itemsForColorFilter.forEach(item => {
+        const color = item.color_name ? item.color_name.split(',')[0].trim() : null;
+        if (color) colorCounts.set(color, (colorCounts.get(color) || 0) + 1);
+    });
+
+    const sizeCounts = new Map();
+    itemsForSizeFilter.forEach(item => {
+        const size = this.extractSize(item.subtitle);
+        if (size) sizeCounts.set(size, (sizeCounts.get(size) || 0) + 1);
+    });
+
+    // Sort and store the final options
     this.filterOptions.brand = [...brandCounts.entries()].sort(([, a], [, b]) => b - a).map(([v, c]) => ({ value: v, count: c }));
     this.filterOptions.color = [...colorCounts.entries()].sort(([, a], [, b]) => b - a).map(([v, c]) => ({ value: v, count: c }));
     this.filterOptions.size = this.sortSizes([...sizeCounts.entries()].map(([v, c]) => ({ value: v, count: c })));
+
+    // Update the UI
     this.updateFilterDropdown('brand', this.filterOptions.brand);
     this.updateFilterDropdown('color', this.filterOptions.color);
     this.updateFilterDropdown('size', this.filterOptions.size);
@@ -162,6 +203,17 @@ class VintedDashboard {
       return `<label class="flex items-center w-full p-1.5 rounded hover:bg-muted cursor-pointer"><input type="checkbox" name="${name}" value="${value}" ${isChecked ? 'checked' : ''} class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"><span class="ml-2 text-sm text-gray-800 truncate">${label}</span></label>`;
     };
     list.innerHTML = options.map(option => createCheckbox(filterType, option)).join('');
+  }
+
+  sortSales(sales) {
+    return [...sales].sort((a, b) => {
+        switch (this.currentSort) {
+          case 'time_asc': return this.getSaleDurationInMs(a) - this.getSaleDurationInMs(b);
+          case 'price_asc': return parseFloat(a.price.replace(/[^0-9.-]+/g, "") || "0") - parseFloat(b.price.replace(/[^0-9.-]+/g, "") || "0");
+          case 'price_desc': return parseFloat(b.price.replace(/[^0-9.-]+/g, "") || "0") - parseFloat(a.price.replace(/[^0-9.-]+/g, "") || "0");
+          default: return new Date(b.soldAt || 0) - new Date(a.soldAt || 0);
+        }
+    });
   }
 
   sortSizes(sizes) {
@@ -187,7 +239,7 @@ class VintedDashboard {
       const salesData = await res.json();
       this.allSales = salesData;
       this.lastUpdateTime = new Date();
-      this.populateFilters();
+      // Initial render which will also populate filters for the first time
       this.renderSales();
     } catch (err) {
       console.error("Failed to fetch sales:", err);
@@ -203,25 +255,16 @@ class VintedDashboard {
     // Filters
     ['brand', 'color', 'size'].forEach(filterType => this.setupFilter(filterType));
     
-    // New Sort Dropdown logic
+    // Sort Dropdown
     if (this.sortBtn) {
-        const sortOptionsMap = {
-            'newest': 'Sort: Most Recent', 'time_asc': 'Sort: Fastest Sale',
-            'price_asc': 'Sort: Price Low-High', 'price_desc': 'Sort: Price High-Low'
-        };
-        this.sortBtn.addEventListener('click', e => {
-            e.stopPropagation();
-            // Hide other dropdowns when opening this one
-            document.querySelectorAll('.filter-dropdown').forEach(d => d.classList.add('hidden'));
-            this.sortDropdown.classList.toggle('hidden');
-        });
+        const sortOptionsMap = { 'newest': 'Sort: Most Recent', 'time_asc': 'Sort: Fastest Sale', 'price_asc': 'Sort: Price Low-High', 'price_desc': 'Sort: Price High-Low' };
+        this.sortBtn.addEventListener('click', e => { e.stopPropagation(); document.querySelectorAll('.filter-dropdown').forEach(d => d.classList.add('hidden')); this.sortDropdown.classList.toggle('hidden'); });
         this.sortDropdown.addEventListener('click', e => {
             e.preventDefault();
             const target = e.target.closest('.sort-option');
             if (target) {
-                const value = target.dataset.value;
-                this.currentSort = value;
-                this.sortBtnText.textContent = sortOptionsMap[value];
+                this.currentSort = target.dataset.value;
+                this.sortBtnText.textContent = sortOptionsMap[this.currentSort];
                 this.sortDropdown.classList.add('hidden');
                 this.renderSales();
             }
@@ -232,7 +275,6 @@ class VintedDashboard {
     window.addEventListener('click', () => {
       document.querySelectorAll('.filter-dropdown, #sortDropdown').forEach(d => d.classList.add('hidden'));
     });
-    // Prevent dropdowns from closing when clicking inside them
     document.querySelectorAll('.filter-dropdown, #sortDropdown').forEach(d => {
       d.addEventListener('click', e => e.stopPropagation());
     });
@@ -250,7 +292,7 @@ class VintedDashboard {
       document.querySelectorAll('.filter-dropdown, #sortDropdown').forEach(d => { if (d !== dropdown) d.classList.add('hidden'); });
       dropdown.classList.toggle('hidden');
       if (!dropdown.classList.contains('hidden')) {
-          searchInput.value = '';
+          // Do not reset search, but re-filter the displayed options
           this.updateFilterDropdown(filterType, this.filterOptions[filterType]);
           searchInput.focus();
       }
@@ -271,6 +313,7 @@ class VintedDashboard {
       const count = this.currentFilters[filterType].length;
       btnText.textContent = `${filterType.charAt(0).toUpperCase() + filterType.slice(1)}${count > 0 ? ` (${count})` : ''}`;
       btn.classList.toggle('filter-btn-active', count > 0);
+      // This is the key that triggers the dynamic update
       this.renderSales();
     });
   }
