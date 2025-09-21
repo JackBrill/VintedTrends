@@ -10,7 +10,7 @@ const BATCH_SIZE = 60; // number of items to track
 const CHECK_INTERVAL = 60 * 1000; // 60 seconds
 const BATCH_DURATION = 5 * 60 * 1000; // 5 minutes
 const CONCURRENT_CHECKS = 20; // Number of items to check at once
-const VERBOSE_LOGGING = true; 
+const VERBOSE_LOGGING = false; 
 
 // Path to sales data -- UPDATED THIS LINE
 const SALES_FILE = path.join(process.cwd(), "mens.json");
