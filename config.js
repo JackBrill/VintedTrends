@@ -55,9 +55,5 @@ export const PROXIES = [
 
 export const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1418908479229530223/8_Eg73-4nZL-QoaGKjXIJF0UOxEAMBiuZGRv5CS3VGd11gLvblOgaLNk1UIqmCbTyA6Z";
 
-export const VINTED_CATEGORIES = [
-    { name: 'mens', url: 'https://www.vinted.co.uk/catalog?search_id=26770150435&catalog[]=2050&order=newest_first' },
-    { name: 'womens', url: 'https://www.vinted.co.uk/catalog?catalog[]=16&order=newest_first' },
-    { name: 'shoes', url: 'https://www.vinted.co.uk/catalog?catalog[]=1988&order=newest_first' },
-    { name: 'designer', url: 'https://www.vinted.co.uk/catalog?catalog[]=1904&order=newest_first' } // Example URL for Designer items
-];
+export const VINTED_CATALOG_URL = "https://www.vinted.co.uk/catalog?search_id=26084673753&catalog[]=2050&order=newest_first"
+
