@@ -1,4 +1,4 @@
-// This is the correct version. Ensure headless is set to false.
+// == The Definitive, Upgraded Version - Please use this ==
 import { chromium } from "playwright-extra";
 import stealthPlugin from "puppeteer-extra-plugin-stealth";
 import fs from "fs";
@@ -11,9 +11,9 @@ chromium.use(stealthPlugin());
 // Settings
 const BATCH_SIZE = 200;
 const MAX_PAGES_TO_SCAN = 10;
-const CHECK_INTERVAL = 60 * 1000;
-const BATCH_DURATION = 10 * 60 * 1000;
-const CONCURRENT_CHECKS = 3;
+const CHECK_INTERVAL = 60 * 1000; // 1 minute
+const BATCH_DURATION = 10 * 60 * 1000; // 10 minutes
+const CONCURRENT_CHECKS = 3; // Safe and stable value
 
 const SALES_FILE = path.join(process.cwd(), "sales.json");
 
@@ -124,7 +124,7 @@ async function collectItems() {
 
 async function checkSingleItem(page, item) {
     if (item.sold) return;
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < 2; i++) { // Retry loop: try up to 2 times
         try {
             console.log(`🔄 Checking "${item.name}" (Attempt ${i + 1})`);
             await page.goto(item.link, { waitUntil: "domcontentloaded", timeout: 30000 });
@@ -151,7 +151,7 @@ async function checkSingleItem(page, item) {
                     timestamp: new Date().toISOString(),
                 });
             }
-            return;
+            return; // Success, exit the retry loop
         } catch (err) {
             console.log(`Attempt ${i + 1} failed for "${item.name}":`, err.message.split('\n')[0]);
             if (i === 1) {
