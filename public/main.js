@@ -202,9 +202,23 @@ class VintedDashboard {
     });
   }
 
-  async fetchSales() {
+async fetchSales() {
+    let apiUrl = "/api/sales"; // Default for homepage (all data)
+    const path = window.location.pathname;
+
+    // Checks the browser's URL to decide which category to request
+    if (path.startsWith('/mens')) {
+        apiUrl = "/api/sales?category=mens";
+    } else if (path.startsWith('/womens')) {
+        apiUrl = "/api/sales?category=womens";
+    } else if (path.startsWith('/shoes')) {
+        apiUrl = "/api/sales?category=shoes";
+    } else if (path.startsWith('/designer')) {
+        apiUrl = "/api/sales?category=designer";
+    }
+
     try {
-      const res = await fetch("/api/sales");
+      const res = await fetch(apiUrl);
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const salesData = await res.json();
       this.allSales = salesData;
