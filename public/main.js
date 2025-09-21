@@ -1,82 +1,297 @@
-const salesContainer = document.getElementById("salesContainer");
-
-/**
- * Calculates and formats the time it took for an item to sell.
- * It can handle two data formats:
- * 1. Using `startedAt` and `soldAt` timestamps.
- * 2. Using a pre-calculated `speed` property in seconds.
- * @param {object} item The sale item object.
- * @returns {string|null} A formatted string like "2m 41s" or null if data is unavailable.
- */
-function getSaleSpeed(item) {
-  if (item.startedAt && item.soldAt) {
-    const startTime = new Date(item.startedAt);
-    const soldTime = new Date(item.soldAt);
-    const diffMs = soldTime - startTime;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffSecs = Math.floor((diffMs % 60000) / 1000);
-    return `${diffMins}m ${diffSecs}s`;
+// Enhanced main.js - Complete VintedTrends Dashboard
+class VintedDashboard {
+  constructor() {
+    this.salesContainer = document.getElementById("salesContainer");
+    this.loadingState = document.getElementById("loadingState");
+    this.searchBar = document.getElementById("searchBar");
+    this.sortOptions = document.getElementById("sortOptions");
+    this.resetFiltersBtn = document.getElementById("resetFiltersBtn");
+    this.statsDisplay = document.getElementById("statsDisplay");
+    
+    // State
+    this.allSales = [];
+    this.currentSort = 'newest';
+    this.searchQuery = '';
+    this.currentFilters = { brand: [], color: [], size: [] };
+    this.lastUpdateTime = null;
+    
+    this.init();
   }
-  if (typeof item.speed === 'number') {
-    const totalSeconds = Math.floor(item.speed);
-    const diffMins = Math.floor(totalSeconds / 60);
-    const diffSecs = totalSeconds % 60;
-    return `${diffMins}m ${diffSecs}s`;
+
+  // Helper Functions
+  getSaleSpeed(item) {
+    if (item.startedAt && item.soldAt) {
+      const startTime = new Date(item.startedAt);
+      const soldTime = new Date(item.soldAt);
+      const diffMs = soldTime - startTime;
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffSecs = Math.floor((diffMs % 60000) / 1000);
+      return `${diffMins}m ${diffSecs}s`;
+    }
+    if (typeof item.speed === 'number') {
+      const totalSeconds = Math.floor(item.speed);
+      const diffMins = Math.floor(totalSeconds / 60);
+      const diffSecs = totalSeconds % 60;
+      return `${diffMins}m ${diffSecs}s`;
+    }
+    return null;
   }
-  return null;
-}
 
-async function fetchSales() {
-  try {
-    const res = await fetch("/api/sales"); 
-    const sales = await res.json();
+  getSaleDurationInMs(item) {
+    return (item.startedAt && item.soldAt) 
+      ? new Date(item.soldAt) - new Date(item.startedAt) 
+      : Infinity;
+  }
 
-    if (!sales || sales.length === 0) {
-      salesContainer.innerHTML = `
+  extractSize(subtitle) {
+    return subtitle ? (subtitle.split('·')[0].trim().toUpperCase() || null) : null;
+  }
+
+  extractBrand(subtitle) {
+    if (!subtitle) return null;
+    const conditionBlacklist = ['new with tags', 'new without tags', 'very good', 'good', 'satisfactory'];
+    const parts = subtitle.split('·').map(p => p.trim());
+    for (let i = 1; i < parts.length; i++) {
+      if (parts[i] && !conditionBlacklist.includes(parts[i].toLowerCase())) {
+        return parts[i];
+      }
+    }
+    return null;
+  }
+
+  mapColorNameToHex(colorName) {
+    if (!colorName) return null;
+    const firstColor = colorName.split(',')[0].trim().toLowerCase();
+    const colorMap = {
+        'black': '#000000', 'white': '#FFFFFF', 'grey': '#808080',
+        'gray': '#808080', 'silver': '#C0C0C0', 'red': '#FF0000',
+        'maroon': '#800000', 'orange': '#FFA500', 'yellow': '#FFFF00',
+        'olive': '#808000', 'lime': '#00FF00', 'green': '#008000',
+        'aqua': '#00FFFF', 'cyan': '#00FFFF', 'teal': '#008080',
+        'blue': '#0000FF', 'navy': '#000080', 'fuchsia': '#FF00FF',
+        'magenta': '#FF00FF', 'purple': '#800080', 'pink': '#FFC0CB',
+        'brown': '#A52A2A', 'beige': '#F5F5DC', 'khaki': '#F0E68C',
+        'gold': '#FFD700', 'cream': '#FFFDD0', 'burgundy': '#800020',
+        'mustard': '#FFDB58', 'turquoise': '#40E0D0', 'indigo': '#4B0082',
+        'violet': '#EE82EE', 'plum': '#DDA0DD', 'orchid': '#DA70D6',
+        'salmon': '#FA8072', 'coral': '#FF7F50', 'chocolate': '#D2691E',
+        'tan': '#D2B48C', 'ivory': '#FFFFF0', 'honeydew': '#F0FFF0',
+        'azure': '#F0FFFF', 'lavender': '#E6E6FA', 'rose': '#FFE4E1',
+        'lilac': '#C8A2C8', 'mint': '#98FF98', 'peach': '#FFDAB9',
+        'sky blue': '#87CEEB', 'royal blue': '#4169E1', 'cobalt': '#0047AB',
+        'denim': '#1560BD', 'emerald': '#50C878', 'mint green': '#98FF98',
+        'lime green': '#32CD32', 'forest green': '#228B22', 'olive green': '#6B8E23',
+        'mustard yellow': '#FFDB58', 'lemon': '#FFFACD', 'coral pink': '#F88379',
+        'hot pink': '#FF69B4', 'baby pink': '#F4C2C2', 'ruby': '#E0115F',
+        'scarlet': '#FF2400', 'wine': '#722F37', 'terracotta': '#E2725B',
+        'bronze': '#CD7F32', 'light blue': '#ADD8E6', 'dark green': '#006400', 
+        'light grey': '#D3D3D3', 'dark blue': '#00008B', 'light green': '#90EE90', 
+        'dark grey': '#A9A9A9', 'multicolour': '#CCCCCC', 'check': '#A9A9A9',
+        'floral': '#A9A9A9', 'animal print': '#A9A9A9', 'striped': '#A9A9A9',
+        'camouflage': '#A9A9A9', 'geometric': '#A9A9A9', 'abstract': '#A9A9A9'
+    };
+    return colorMap[firstColor] || '#CCCCCC';
+  }
+
+  // Stats calculation
+  updateStats(filteredSales) {
+    if (!this.statsDisplay || filteredSales.length === 0) return;
+    
+    const avgSaleTime = filteredSales
+      .map(item => this.getSaleDurationInMs(item))
+      .filter(time => time !== Infinity)
+      .reduce((sum, time, _, arr) => sum + time / arr.length, 0);
+    
+    const avgSaleTimeFormatted = avgSaleTime > 0 ? 
+      `${Math.floor(avgSaleTime / 60000)}m ${Math.floor((avgSaleTime % 60000) / 1000)}s` : 
+      'N/A';
+    
+    this.statsDisplay.textContent = `${filteredSales.length} items • Avg sale time: ${avgSaleTimeFormatted}`;
+  }
+
+  // Rendering Logic
+  renderSales() {
+    if (this.loadingState) {
+      this.loadingState.classList.add('hidden');
+    }
+    if (this.salesContainer) {
+      this.salesContainer.classList.remove('hidden');
+    }
+
+    if (!this.allSales || this.allSales.length === 0) {
+      this.salesContainer.innerHTML = `
         <div class="col-span-full text-center py-12">
           <h2 class="text-xl font-semibold text-muted-foreground">No sold items recorded yet.</h2>
           <p class="text-muted-foreground">The tracker is running. Sold items will appear here automatically.</p>
         </div>`;
       return;
     }
-    
-    // Sort by soldAt date to show the most recent sales first
-    const sortedSales = sales.sort((a, b) => new Date(b.soldAt) - new Date(a.soldAt));
 
-    salesContainer.innerHTML = sortedSales.map(item => {
-      const saleSpeed = getSaleSpeed(item);
-      const saleInfoHTML = saleSpeed ?
-        `<p class="text-xs text-muted-foreground">Sold in ${saleSpeed}</p>` :
-        `<p class="text-xs text-muted-foreground">&nbsp;</p>`; // Use non-breaking space for consistent height
+    // Apply filters
+    const filteredSales = this.allSales.filter(item => {
+      const query = this.searchQuery.toLowerCase();
+      const searchMatch = !query || 
+        (item.name && item.name.toLowerCase().includes(query)) || 
+        (item.link && item.link.toLowerCase().includes(query)) ||
+        (item.subtitle && item.subtitle.toLowerCase().includes(query));
+
+      const brand = this.extractBrand(item.subtitle);
+      const size = this.extractSize(item.subtitle);
+      const color = item.color_name ? item.color_name.split(',')[0].trim() : null;
+
+      const brandMatch = this.currentFilters.brand.length === 0 || 
+        (brand && this.currentFilters.brand.includes(brand));
+      const colorMatch = this.currentFilters.color.length === 0 || 
+        (color && this.currentFilters.color.includes(color));
+      const sizeMatch = this.currentFilters.size.length === 0 || 
+        (size && this.currentFilters.size.includes(size));
+
+      return searchMatch && brandMatch && colorMatch && sizeMatch;
+    });
+
+    // Apply sorting
+    const sortedSales = [...filteredSales].sort((a, b) => {
+      switch (this.currentSort) {
+        case 'time_asc':
+          return this.getSaleDurationInMs(a) - this.getSaleDurationInMs(b);
+        case 'price_asc':
+          return parseFloat(a.price.replace(/[^0-9.-]+/g, "") || "0") - 
+                 parseFloat(b.price.replace(/[^0-9.-]+/g, "") || "0");
+        case 'price_desc':
+          return parseFloat(b.price.replace(/[^0-9.-]+/g, "") || "0") - 
+                 parseFloat(a.price.replace(/[^0-9.-]+/g, "") || "0");
+        default: // newest
+          return new Date(b.soldAt || 0) - new Date(a.soldAt || 0);
+      }
+    });
+
+    // Update stats
+    this.updateStats(sortedSales);
+
+    if (sortedSales.length === 0) {
+      this.salesContainer.innerHTML = 
+        `<p class="col-span-full text-center text-muted-foreground py-12">No items match your filters.</p>`;
+      return;
+    }
+
+    // Render cards
+    this.salesContainer.innerHTML = sortedSales.map(item => {
+      const saleSpeed = this.getSaleSpeed(item);
+      const size = this.extractSize(item.subtitle);
+      const colorHex = this.mapColorNameToHex(item.color_name);
+      const isWhite = colorHex && colorHex.toUpperCase() === '#FFFFFF';
+      const borderClass = isWhite ? 'border border-gray-400' : '';
+      
+      const soldTimeAgo = (() => {
+        if (!item.soldAt) return '';
+        const seconds = Math.round((new Date() - new Date(item.soldAt)) / 1000);
+        const minutes = Math.round(seconds / 60);
+        const hours = Math.round(minutes / 60);
+        const days = Math.round(hours / 24);
+        
+        if (seconds < 60) return `${seconds}s ago`;
+        if (minutes < 60) return `${minutes}m ago`;
+        if (hours < 24) return `${hours}h ago`;
+        return `${days}d ago`;
+      })();
+
+      const colorCircleHTML = colorHex ? 
+        `<div class="w-4 h-4 rounded-full ${borderClass}" style="background-color: ${colorHex};" title="${item.color_name || 'Color'}"></div>` : '';
+      
+      const sizeAndColorHTML = size || colorCircleHTML ? `
+        <div class="flex items-center gap-1.5 flex-shrink-0">
+          ${size ? `<span class="text-xs font-bold text-gray-800 bg-gray-100 px-2 py-0.5 rounded">${size}</span>` : ''}
+          ${colorCircleHTML}
+        </div>
+      ` : '';
 
       return `
-      <div class="bg-card text-card-foreground flex flex-col">
-        <!-- Image -->
-        <a href="${item.link}" target="_blank" rel="noopener noreferrer">
-          <img src="${item.image || 'https://placehold.co/400x600/f1f5f9/94a3b8?text=Sold'}" alt="${item.name}" class="w-full h-auto aspect-[3/4] object-cover" loading="lazy" />
-        </a>
-        
-        <!-- Content -->
-        <div class="p-2 flex-grow">
-          ${saleInfoHTML}
-          <p class="text-base font-semibold mt-1">${item.price}</p>
-        </div>
-        
-        <!-- Button -->
-        <div class="px-2 pb-2">
-          <a href="${item.link}" target="_blank" rel="noopener noreferrer" 
-             class="block w-full text-center text-sm font-bold text-primary border border-primary rounded-md py-1.5 hover:bg-primary hover:text-primary-foreground transition-colors duration-200">
-            View
+        <div class="bg-card text-card-foreground border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col">
+          <a href="${item.link}" target="_blank" rel="noopener noreferrer" class="block relative group">
+            <img src="${item.image || 'https://placehold.co/400x600/f1f5f9/94a3b8?text=Sold'}" 
+                 alt="${item.name || 'Sold item'}" 
+                 class="w-full h-72 object-cover group-hover:opacity-95 transition-opacity duration-200" 
+                 loading="lazy" 
+                 onerror="this.src='https://placehold.co/400x600/f1f5f9/94a3b8?text=No+Image'" />
           </a>
+          
+          <div class="p-3 flex flex-col flex-grow">
+            <div class="flex justify-between items-start gap-2 mb-2">
+              <p class="font-semibold text-sm line-clamp-2 leading-tight">${item.name || 'Untitled Item'}</p>
+              ${sizeAndColorHTML}
+            </div>
+            
+            <div class="flex justify-between items-center text-xs text-muted-foreground mb-2">
+              <span class="truncate">${saleSpeed ? `Sold in: ${saleSpeed}` : 'Sale time: N/A'}</span>
+              <span class="flex-shrink-0 ml-2">${soldTimeAgo}</span>
+            </div>
+            
+            <div class="flex-grow"></div>
+            <p class="text-lg font-bold text-primary mb-3">${item.price || 'Price N/A'}</p>
+            
+            <a href="${item.link}" target="_blank" rel="noopener noreferrer" 
+               class="block text-center w-full bg-transparent border border-primary text-primary font-bold py-2 px-4 rounded-md hover:bg-primary hover:text-primary-foreground transition-all duration-200 text-sm">
+              View on Vinted
+            </a>
+          </div>
         </div>
-      </div>
       `;
     }).join("");
-  } catch (err) {
-    console.error("Failed to fetch sales:", err);
-    salesContainer.innerHTML = `<p class="col-span-full text-destructive text-center">Error loading sales data. Please check the console.</p>`;
   }
-}
 
-fetchSales();
-setInterval(fetchSales, 5000);
+  // Filter Management
+  populateFilters() {
+    const brands = new Set();
+    const colors = new Set();
+    const sizes = new Set();
+
+    this.allSales.forEach(item => {
+      const brand = this.extractBrand(item.subtitle);
+      if (brand) brands.add(brand);
+      
+      const size = this.extractSize(item.subtitle);
+      if (size) sizes.add(size);
+      
+      const color = item.color_name ? item.color_name.split(',')[0].trim() : null;
+      if (color) colors.add(color);
+    });
+
+    // Update filter dropdowns
+    this.updateFilterDropdown('brand', [...brands].sort());
+    this.updateFilterDropdown('color', [...colors].sort());
+    this.updateFilterDropdown('size', this.sortSizes([...sizes]));
+  }
+
+  updateFilterDropdown(filterType, options) {
+    const list = document.getElementById(`${filterType}FilterList`);
+    if (!list) return;
+
+    const createCheckbox = (name, value, isChecked) => `
+      <label class="flex items-center w-full p-1.5 rounded hover:bg-gray-100 cursor-pointer">
+        <input type="checkbox" name="${name}" value="${value}" ${isChecked ? 'checked' : ''} 
+               class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary">
+        <span class="ml-2 text-sm text-gray-800 truncate">${value}</span>
+      </label>
+    `;
+
+    list.innerHTML = options.map(option => 
+      createCheckbox(filterType, option, this.currentFilters[filterType].includes(option))
+    ).join('');
+  }
+
+  sortSizes(sizes) {
+    const sizeOrder = {
+      'XXS': 1, 'XS': 2, 'S': 3, 'M': 4, 'L': 5, 'XL': 6, 
+      'XXL': 7, '2XL': 7, 'XXXL': 8, '3XL': 8, 'XXXXL': 9, '4XL': 9, '5XL': 10
+    };
+    
+    return sizes.sort((a, b) => {
+      const aUpper = a.toUpperCase();
+      const bUpper = b.toUpperCase();
+      const aIsOrdered = sizeOrder[aUpper];
+      const bIsOrdered = sizeOrder[bUpper];
+      const aIsNumeric = !isNaN(parseFloat(a)) && isFinite(a);
+      const bIsNumeric = !isNaN(parseFloat(b)) && isFinite(b);
+
+      if (aIsOrdered && bIsOrdered) return sizeOrder[aUpper] - sizeOrder[bUpper];
+      if (aIs
