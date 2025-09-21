@@ -185,14 +185,30 @@
       // Helper Functions
       const getSaleDurationInMs = item => (item.startedAt && item.soldAt ? new Date(item.soldAt) - new Date(item.startedAt) : Infinity);
       const extractSize = subtitle => subtitle ? (subtitle.split('·')[0].trim().toUpperCase() || null) : null;
-      const extractBrand = subtitle => {
+const extractBrand = subtitle => {
         if (!subtitle) return null;
+
         const conditionBlacklist = ['new with tags', 'new without tags', 'very good', 'good', 'satisfactory'];
+
+        // This regular expression helps identify and ignore common size formats.
+        // It looks for things like S, M, XL, XXL, "One Size", numbers (e.g., 32, 44), etc.
+        const sizeRegex = /^(X{0,4}[SML]|ONE SIZE|\d{1,3}(\.\d{1,2})?(-\d{1,3}(\.\d{1,2})?)?)$/i;
+
         const parts = subtitle.split('·').map(p => p.trim());
-        for (let i = 1; i < parts.length; i++) {
-          if (parts[i] && !conditionBlacklist.includes(parts[i].toLowerCase())) return parts[i];
-        }
-        return null;
+
+        // Find the first part of the text that is NOT a condition and NOT a size.
+        // This is the most reliable way to identify the brand.
+        const brand = parts.find(part => {
+            if (!part) return false;
+            const lowerPart = part.toLowerCase();
+            
+            const isCondition = conditionBlacklist.includes(lowerPart);
+            const isSize = sizeRegex.test(part);
+
+            return !isCondition && !isSize;
+        });
+
+        return brand || null; // Return the found brand, or null if nothing matched.
       };
       
       const sortSizes = sizes => {
