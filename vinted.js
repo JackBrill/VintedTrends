@@ -1,9 +1,13 @@
 // vinted.js
-import { chromium } from "playwright";
+import { chromium } from "playwright-extra"; // ** MODIFIED **
+import stealthPlugin from "puppeteer-extra-plugin-stealth"; // ** NEW **
 import fs from "fs";
 import path from "path";
 import fetch from "node-fetch";
 import { PROXIES, DISCORD_WEBHOOK_URL, VINTED_CATALOG_URL } from "./config.js";
+
+// ** NEW ** Apply the stealth plugin
+chromium.use(stealthPlugin());
 
 // Settings
 const BATCH_SIZE = 200;
@@ -16,7 +20,7 @@ const VERBOSE_LOGGING = true;
 // Path to sales data
 const SALES_FILE = path.join(process.cwd(), "sales.json");
 
-// Load sales data
+// (The helper functions like loadSales, saveSales, mapColorToHex, etc. remain the same)
 function loadSales() {
   if (!fs.existsSync(SALES_FILE)) return [];
   try {
@@ -25,12 +29,9 @@ function loadSales() {
     return [];
   }
 }
-
-// Save sales data
 function saveSales(data) {
   fs.writeFileSync(SALES_FILE, JSON.stringify(data, null, 2));
 }
-
 function mapColorToHex(colorName) {
     if (!colorName) return null;
     const firstColor = colorName.split(',')[0].trim().toLowerCase();
@@ -39,7 +40,6 @@ function mapColorToHex(colorName) {
     };
     return colorMap[firstColor] || null;
 }
-
 async function sendDiscordNotification(embed) {
   try {
     await fetch(DISCORD_WEBHOOK_URL, {
@@ -51,12 +51,12 @@ async function sendDiscordNotification(embed) {
     console.log("❌ Failed to send Discord webhook:", err.message);
   }
 }
-
 function getRandomProxy() {
   const proxyStr = PROXIES[Math.floor(Math.random() * PROXIES.length)];
   const [host, port, user, pass] = proxyStr.split(":");
   return { host, port, user, pass };
 }
+
 
 async function collectItems() {
     let attempt = 1;
@@ -81,7 +81,20 @@ async function collectItems() {
                 const currentUrl = `${VINTED_CATALOG_URL}&page=${pageNumber}`;
                 console.log(`Scanning Page ${pageNumber}... | Collected: ${collectedItemData.length}/${BATCH_SIZE}`);
                 
-                await page.goto(currentUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+                // ** MODIFIED ** Switched to 'networkidle' for more reliable page loads
+                await page.goto(currentUrl, { waitUntil: "networkidle", timeout: 45000 });
+
+                // ** NEW ** Human-like interaction: Handle cookie banner
+                try {
+                    const cookieButton = await page.waitForSelector('#onetrust-accept-btn-handler', { timeout: 5000 });
+                    if (cookieButton) {
+                        console.log("Cookie banner found. Accepting...");
+                        await cookieButton.click();
+                        await page.waitForTimeout(1000); // Wait a moment after clicking
+                    }
+                } catch (e) {
+                    console.log("No cookie banner found or it timed out.");
+                }
 
                 const pageTitle = await page.title();
                 if (pageTitle.toLowerCase().includes("are you a human")) {
@@ -89,7 +102,7 @@ async function collectItems() {
                     break;
                 }
                 
-                await page.waitForSelector('div[data-testid="feed-grid"]', { timeout: 15000 });
+                await page.waitForSelector('div[data-testid="feed-grid"]', { timeout: 20000 });
                 const pageItems = await page.$$('div[data-testid="grid-item"]');
 
                 if (pageItems.length === 0) {
@@ -97,6 +110,7 @@ async function collectItems() {
                     break;
                 }
                 
+                console.log(`Found ${pageItems.length} items on page ${pageNumber}.`);
                 for (const itemHandle of pageItems) {
                     if (collectedItemData.length >= BATCH_SIZE) break;
                     try {
@@ -109,9 +123,7 @@ async function collectItems() {
                             name, subtitle, price, link, sold: false, startedAt: new Date(),
                             soldAt: null, image: null, color_name: null, color_hex: null,
                         });
-                    } catch (err) {
-                        // Skip item if selectors fail (e.g., ad tile)
-                    }
+                    } catch (err) { /* Skip item if selectors fail */ }
                 }
                 pageNumber++;
             }
@@ -134,7 +146,6 @@ async function collectItems() {
     return collectedItemData;
 }
 
-// ** REFACTORED ** - This function now performs a single item check on a persistent page.
 async function checkSingleItem(page, item) {
     if (item.sold) return;
     try {
@@ -165,12 +176,7 @@ async function checkSingleItem(page, item) {
 
             await sendDiscordNotification({
                 title: "🛑 Item SOLD", color: 0xff0000,
-                fields: [
-                    { name: "Name", value: item.name, inline: false },
-                    { name: "Price", value: item.price, inline: true },
-                    { name: "Color", value: item.color_name || "N/A", inline: true},
-                    { name: "Link", value: item.link, inline: false },
-                ],
+                fields: [ { name: "Name", value: item.name, inline: false }, { name: "Price", value: item.price, inline: true }, { name: "Color", value: item.color_name || "N/A", inline: true}, { name: "Link", value: item.link, inline: false }, ],
                 image: item.image ? { url: item.image } : undefined,
                 timestamp: new Date().toISOString(),
             });
@@ -201,17 +207,16 @@ async function checkSingleItem(page, item) {
             timestamp: new Date().toISOString(),
         });
 
-        // ** NEW ** Worker Pool Logic
         const runChecksWithWorkerPool = async () => {
             const itemsToCheck = trackedItems.filter(p => !p.sold);
             if (itemsToCheck.length === 0) return;
 
             console.log(`\nStarting check cycle for ${itemsToCheck.length} remaining items...`);
-            const itemQueue = [...itemsToCheck]; // Create a copy to serve as the queue
+            const itemQueue = [...itemsToCheck]; 
             
             const worker = async (page) => {
                 while (itemQueue.length > 0) {
-                    const item = itemQueue.shift(); // Each worker pulls an item from the queue
+                    const item = itemQueue.shift();
                     if (item) {
                         await checkSingleItem(page, item);
                     }
@@ -222,7 +227,6 @@ async function checkSingleItem(page, item) {
             const contexts = [];
             const workerPromises = [];
 
-            // Create workers
             for (let i = 0; i < CONCURRENT_CHECKS; i++) {
                 const proxy = getRandomProxy();
                 const context = await browser.newContext({
@@ -236,7 +240,6 @@ async function checkSingleItem(page, item) {
             
             await Promise.all(workerPromises);
 
-            // Cleanup
             for (const context of contexts) {
                 await context.close();
             }
@@ -251,7 +254,7 @@ async function checkSingleItem(page, item) {
         };
 
         const interval = setInterval(mainCheckLoop, CHECK_INTERVAL);
-        await mainCheckLoop(); // Run checks immediately once
+        await mainCheckLoop(); 
 
         await new Promise(resolve => setTimeout(resolve, BATCH_DURATION));
 
