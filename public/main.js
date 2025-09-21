@@ -48,12 +48,28 @@ class VintedDashboard {
     return subtitle ? (subtitle.split('·')[0].trim().toUpperCase() || null) : null;
   }
 
-  extractBrand(item) {
-    if (!item.name) {
-      return null;
+extractBrand(item) {
+    // 1. Try getting the brand from the subtitle first, as it's more reliable.
+    // The subtitle is often structured like: "M · The North Face · Very Good"
+    if (item.subtitle) {
+      const parts = item.subtitle.split('·');
+      // The brand is usually the second part. We check if it exists.
+      if (parts.length > 1 && parts[1]) {
+        const brandCandidate = parts[1].trim();
+        // A quick check to make sure we're not grabbing the "condition".
+        const conditionBlacklist = ['new with tags', 'new without tags', 'very good', 'good', 'satisfactory'];
+        if (!conditionBlacklist.includes(brandCandidate.toLowerCase())) {
+          return brandCandidate; // Returns the full brand, e.g., "The North Face"
+        }
+      }
     }
-    // The brand is assumed to be the first word of the item's name.
-    return item.name.split(' ')[0];
+
+    // 2. If the subtitle doesn't work, fall back to the first word of the name.
+    if (item.name) {
+      return item.name.split(' ')[0];
+    }
+
+    return null; // Return null if nothing is found.
   }
 
   mapColorNameToHex(colorName) {
