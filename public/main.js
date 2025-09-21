@@ -1,4 +1,4 @@
-// Enhanced main.js - With Instant Tag Creation
+// Enhanced main.js - With smart filter switching
 class VintedDashboard {
   constructor() {
     this.salesContainer = document.getElementById("salesContainer");
@@ -19,7 +19,7 @@ class VintedDashboard {
     this.currentFilters = { brand: [], color: [], size: [] };
     this.lastUpdateTime = null;
     this.filterOptions = { brand: [], color: [], size: [] };
-    this.activeDropdown = null;
+    this.activeDropdown = null; // Track the currently open filter dropdown
     
     this.init();
   }
@@ -224,7 +224,6 @@ class VintedDashboard {
     this.renderSales();
   }
 
-  // NEW: Helper function to update the main filter button's appearance
   updateFilterButtonUI(filterType) {
     const btnText = document.getElementById(`${filterType}FilterBtnText`);
     const btn = document.getElementById(`${filterType}FilterBtn`);
@@ -287,14 +286,20 @@ class VintedDashboard {
 
     btn.addEventListener('click', e => {
       e.stopPropagation();
+      // NEW: If a different filter was already active, apply it before opening the new one.
+      if (this.activeDropdown && this.activeDropdown !== filterType) {
+        this.applyFilter(this.activeDropdown);
+      }
+
       document.querySelectorAll('.filter-dropdown, #sortDropdown').forEach(d => { if (d !== dropdown) d.classList.add('hidden'); });
       dropdown.classList.toggle('hidden');
+      
       if (!dropdown.classList.contains('hidden')) {
           this.activeDropdown = filterType;
           this.updateFilterDropdown(filterType, this.filterOptions[filterType]);
           searchInput.focus();
       } else {
-          this.applyFilter(this.activeDropdown); // Apply if dropdown is closed by clicking its button
+          this.applyFilter(this.activeDropdown); // Apply if dropdown is closed by clicking its own button
       }
     });
 
@@ -304,13 +309,12 @@ class VintedDashboard {
       this.updateFilterDropdown(filterType, filtered);
     });
 
-    // NEW: Listen for clicks on checkboxes to provide instant feedback
     list.addEventListener('change', e => {
         if (e.target.type === 'checkbox') {
             const checkedInputs = list.querySelectorAll('input[type="checkbox"]:checked');
             this.currentFilters[filterType] = Array.from(checkedInputs).map(input => input.value);
-            this.renderActiveFilters(); // Instantly show/hide the tag
-            this.updateFilterButtonUI(filterType); // Instantly update the button count
+            this.renderActiveFilters();
+            this.updateFilterButtonUI(filterType);
         }
     });
 
