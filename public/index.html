@@ -14,30 +14,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
 
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5225204248300233"
-     crossorigin="anonymous"></script>
-
     <style>
-      .font-title {
-        font-family: 'Cinzel Decorative', poppins;
-      }
-      /* Custom style for the sort dropdown arrow */
-      #sortOptions {
-        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23007782' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-        background-position: right 0.5rem center;
-        background-repeat: no-repeat;
-        background-size: 1.5em 1.5em;
-        padding-right: 2.5rem;
-        -webkit-appearance: none;
-        -moz-appearance: none;
-        appearance: none;
-      }
-      .filter-btn-active {
-        border-color: #007782;
-        background-color: #f0fafa;
-        color: #007782;
-        font-weight: 600;
-      }
+      .font-title { font-family: 'Cinzel Decorative', serif; }
+      .filter-btn-active { border-color: #007782; background-color: #f0fafa; color: #007782; font-weight: 600; }
+      .sort-item-active { background-color: #e0f2f1; color: #007782; }
     </style>
 
     <script>
@@ -45,35 +25,14 @@
         theme: {
           extend: {
             colors: {
-              border: 'hsl(214.3 31.8% 91.4%)',
-              input: 'hsl(214.3 31.8% 91.4%)',
-              ring: 'hsl(222.2 84% 4.9%)',
-              background: 'hsl(0 0% 100%)',
-              foreground: 'hsl(222.2 84% 4.9%)',
-              primary: {
-                DEFAULT: 'hsl(188 100% 25.1%)',
-                foreground: 'hsl(0 0% 100%)',
-              },
-              secondary: {
-                DEFAULT: 'hsl(210 40% 96.1%)',
-                foreground: 'hsl(222.2 47.4% 11.2%)',
-              },
-              destructive: {
-                DEFAULT: 'hsl(0 84.2% 60.2%)',
-                foreground: 'hsl(210 40% 98%)',
-              },
-              muted: {
-                DEFAULT: 'hsl(210 40% 96.1%)',
-                foreground: 'hsl(215.4 16.3% 46.9%)',
-              },
-              accent: {
-                DEFAULT: 'hsl(210 40% 96.1%)',
-                foreground: 'hsl(222.2 47.4% 11.2%)',
-              },
-              card: {
-                DEFAULT: 'hsl(0 0% 100%)',
-                foreground: 'hsl(222.2 84% 4.9%)',
-              },
+              border: 'hsl(214.3 31.8% 91.4%)', input: 'hsl(214.3 31.8% 91.4%)', ring: 'hsl(222.2 84% 4.9%)',
+              background: 'hsl(0 0% 100%)', foreground: 'hsl(222.2 84% 4.9%)',
+              primary: { DEFAULT: 'hsl(188 100% 25.1%)', foreground: 'hsl(0 0% 100%)' },
+              secondary: { DEFAULT: 'hsl(210 40% 96.1%)', foreground: 'hsl(222.2 47.4% 11.2%)' },
+              destructive: { DEFAULT: 'hsl(0 84.2% 60.2%)', foreground: 'hsl(210 40% 98%)' },
+              muted: { DEFAULT: 'hsl(210 40% 96.1%)', foreground: 'hsl(215.4 16.3% 46.9%)' },
+              accent: { DEFAULT: 'hsl(210 40% 96.1%)', foreground: 'hsl(222.2 47.4% 11.2%)' },
+              card: { DEFAULT: 'hsl(0 0% 100%)', foreground: 'hsl(222.2 84% 4.9%)' },
               'vinted-teal-light': 'hsl(188 100% 35%)',
             }
           }
@@ -88,38 +47,18 @@
         <div class="flex justify-between items-center w-full md:w-auto">
           <h1 class="font-title text-2xl md:text-3xl font-bold text-primary">VinTrends</h1>
         </div>
-        <nav class="hidden md:flex items-center gap-1 lg:gap-4">
-          <a href="#" data-category="Mens Clothing" class="category-link text-foreground font-semibold hover:text-primary transition-colors px-2 py-2 rounded-md text-sm lg:text-base">Mens Clothing</a>
-          <a href="#" data-category="Womens Clothing" class="category-link text-foreground font-semibold hover:text-primary transition-colors px-2 py-2 rounded-md text-sm lg:text-base">Womens Clothing</a>
-          <a href="#" data-category="Shoes" class="category-link text-foreground font-semibold hover:text-primary transition-colors px-2 py-2 rounded-md text-sm lg:text-base">Shoes</a>
-          <a href="#" data-category="Electronics" class="category-link text-foreground font-semibold hover:text-primary transition-colors px-2 py-2 rounded-md text-sm lg:text-base">Electronics</a>
-        </nav>
         <div class="relative">
           <input type="text" id="searchBar" placeholder="Search items or links..." class="bg-secondary border border-gray-300 rounded-full py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent w-full sm:w-64 transition-all duration-300">
           <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <svg class="w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+            <svg class="w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           </div>
         </div>
       </div>
     </header>
 
     <main class="container mx-auto p-4 md:p-6">
-      <div class="my-4">
-        <ins class="adsbygoogle"
-             style="display:block"
-             data-ad-client="ca-pub-5225204248300233"
-             data-ad-slot="YOUR_AD_SLOT_ID"
-             data-ad-format="auto"
-             data-full-width-responsive="true"></ins>
-        <script>
-             (adsbygoogle = window.adsbygoogle || []).push({});
-        </script>
-      </div>
-
       <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-4">
-        <h2 id="categoryTitle" class="text-lg md:text-xl font-bold text-gray-800">Men's Clothing</h2>
+        <h2 id="categoryTitle" class="text-lg md:text-xl font-bold text-gray-800">Recently Sold</h2>
         <div class="flex flex-wrap items-center gap-2">
           
           <div class="relative">
@@ -155,28 +94,36 @@
             </div>
           </div>
 
-          <select id="sortOptions" class="bg-transparent rounded-full border-2 border-primary text-primary font-semibold py-2 px-4 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 transition-colors text-sm">
-            <option value="newest" selected>Most Recent</option>
-            <option value="time_asc">Time Taken</option>
-            <option value="price_asc">Price: Low to High</option>
-            <option value="price_desc">Price: High to Low</option>
-          </select>
+          <div class="relative">
+            <button id="sortBtn" class="filter-btn flex items-center gap-2 bg-white rounded-full border-2 border-primary text-primary font-semibold py-2 px-4 focus:outline-none hover:border-gray-400 transition-colors text-sm">
+                <span id="sortBtnText">Sort By</span>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+            <div id="sortDropdown" class="filter-dropdown absolute right-0 z-20 w-56 mt-2 p-2 bg-white border rounded-md shadow-lg hidden">
+                <div id="sortOptionsContainer" class="space-y-1">
+                    <div class="sort-item p-2 text-sm text-gray-800 rounded hover:bg-gray-100 cursor-pointer" data-sort-value="newest">Most Recent</div>
+                    <div class="sort-item p-2 text-sm text-gray-800 rounded hover:bg-gray-100 cursor-pointer" data-sort-value="time_asc">Time Taken</div>
+                    <div class="sort-item p-2 text-sm text-gray-800 rounded hover:bg-gray-100 cursor-pointer" data-sort-value="price_asc">Price: Low to High</div>
+                    <div class="sort-item p-2 text-sm text-gray-800 rounded hover:bg-gray-100 cursor-pointer" data-sort-value="price_desc">Price: High to Low</div>
+                </div>
+            </div>
+        </div>
 
           <button id="resetFiltersBtn" class="text-sm text-gray-600 hover:text-primary font-semibold px-2">Reset</button>
         </div>
       </div>
-      <div id="salesContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        </div>
+      
+      <div id="activeFiltersContainer" class="flex flex-wrap items-center gap-2 mb-4"></div>
+      
+      <div id="salesContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"></div>
     </main>
     
     <script>
-      // Element References
       const salesContainer = document.getElementById("salesContainer");
       const searchBar = document.getElementById("searchBar");
-      const sortOptions = document.getElementById("sortOptions");
       const resetFiltersBtn = document.getElementById("resetFiltersBtn");
+      const activeFiltersContainer = document.getElementById("activeFiltersContainer");
 
-      // State
       let allSales = [];
       let currentSort = 'newest';
       let searchQuery = '';
@@ -184,35 +131,49 @@
 
       // Helper Functions
       const getSaleDurationInMs = item => (item.startedAt && item.soldAt ? new Date(item.soldAt) - new Date(item.startedAt) : Infinity);
-      const extractSize = subtitle => subtitle ? (subtitle.split('·')[0].trim().toUpperCase() || null) : null;
-const extractBrand = subtitle => {
-        if (!subtitle) return null;
-
-        const conditionBlacklist = ['new with tags', 'new without tags', 'very good', 'good', 'satisfactory'];
-
-        // This regular expression helps identify and ignore common size formats.
-        // It looks for things like S, M, XL, XXL, "One Size", numbers (e.g., 32, 44), etc.
-        const sizeRegex = /^(X{0,4}[SML]|ONE SIZE|\d{1,3}(\.\d{1,2})?(-\d{1,3}(\.\d{1,2})?)?)$/i;
-
-        const parts = subtitle.split('·').map(p => p.trim());
-
-        // Find the first part of the text that is NOT a condition and NOT a size.
-        // This is the most reliable way to identify the brand.
-        const brand = parts.find(part => {
-            if (!part) return false;
-            const lowerPart = part.toLowerCase();
-            
-            const isCondition = conditionBlacklist.includes(lowerPart);
-            const isSize = sizeRegex.test(part);
-
-            return !isCondition && !isSize;
-        });
-
-        return brand || null; // Return the found brand, or null if nothing matched.
+      
+      // ** NEW ** - Expert helper function to identify sizes
+      const isSize = (part) => {
+        const lowerPart = part.toLowerCase();
+        // Exact matches for letter sizes
+        const exactSizes = ['xxs', 'xs', 's', 'm', 'l', 'xl', 'xxl', 'xxxl', 'xxxxl', 'one size'];
+        if (exactSizes.includes(lowerPart)) return true;
+        // Patterns like "UK 8", "EU 42", "Size M", "32 Waist"
+        const sizePrefixRegex = /^(uk|eu|eur|us|size|age|waist|chest|ch)\s/i;
+        if (sizePrefixRegex.test(part)) return true;
+        // Patterns for jean sizes like "32W 30L", "W32 L30", "32x30"
+        const jeanSizeRegex = /(w\d{2}|\d{2}w).*(l\d{2}|\d{2}l)|^\d{2}[x\/]\d{2}$/i;
+        if (jeanSizeRegex.test(part)) return true;
+        // Standalone numbers (e.g., "42", "10.5", "34")
+        const numericOnlyRegex = /^\d{1,3}(\.\d{1,2})?$/;
+        if (numericOnlyRegex.test(part)) return true;
+        return false;
       };
       
+      // ** UPDATED ** - This function now uses the new isSize helper
+      const extractBrand = subtitle => {
+        if (!subtitle) return null;
+        const conditionBlacklist = ['new with tags', 'new without tags', 'very good', 'good', 'satisfactory'];
+        const parts = subtitle.split('·').map(p => p.trim());
+
+        const brand = parts.find(part => {
+            if (!part) return false;
+            const isCondition = conditionBlacklist.includes(part.toLowerCase());
+            const partIsSize = isSize(part);
+            return !isCondition && !partIsSize;
+        });
+        return brand || null;
+      };
+
+      const extractSize = subtitle => {
+          if (!subtitle) return null;
+          const parts = subtitle.split('·').map(p => p.trim());
+          // The size is usually the first part that IS a size.
+          return parts.find(part => isSize(part))?.toUpperCase() || null;
+      }
+      
       const sortSizes = sizes => {
-          const sizeOrder = {'XXS': 1, 'XS': 2, 'S': 3, 'M': 4, 'L': 5, 'XL': 6, 'XXL': 7, '2XL': 7, 'XXXL': 8, '3XL': 8, 'XXXXL': 9, '4XL': 9, '5XL': 10};
+          const sizeOrder = {'XXS': 1, 'XS': 2, 'S': 3, 'M': 4, 'L': 5, 'XL': 6, 'XXL': 7, '2XL': 7, 'XXXL': 8, '3XL': 8, '4XL': 9, '5XL': 10};
           return sizes.sort((a, b) => {
               const aUpper = a.toUpperCase(), bUpper = b.toUpperCase();
               const aIsOrdered = sizeOrder[aUpper], bIsOrdered = sizeOrder[bUpper];
@@ -224,24 +185,37 @@ const extractBrand = subtitle => {
               return a.localeCompare(b);
           });
       };
-
-      // ** FIXED ** Re-added this function to map colors to hex codes
       function mapColorNameToHex(colorName) {
         if (!colorName) return null;
         const firstColor = colorName.split(',')[0].trim().toLowerCase();
-        const colorMap = {
-            'black': '#000000', 'white': '#FFFFFF', 'grey': '#808080', 'gray': '#808080', 'silver': '#C0C0C0', 'red': '#FF0000', 'maroon': '#800000', 'orange': '#FFA500', 'yellow': '#FFFF00', 'olive': '#800000', 'lime': '#00FF00', 'green': '#008000', 'aqua': '#00FFFF', 'cyan': '#00FFFF', 'teal': '#008080', 'blue': '#0000FF', 'navy': '#000080', 'fuchsia': '#FF00FF', 'magenta': '#FF00FF', 'purple': '#800080', 'pink': '#FFC0CB', 'brown': '#A52A2A', 'beige': '#F5F5DC', 'khaki': '#F0E68C', 'gold': '#FFD700', 'cream': '#FFFDD0', 'burgundy': '#800020', 'mustard': '#FFDB58', 'turquoise': '#40E0D0', 'indigo': '#4B0082', 'violet': '#EE82EE', 'plum': '#DDA0DD', 'orchid': '#DA70D6', 'salmon': '#FA8072', 'coral': '#FF7F50', 'chocolate': '#D2691E', 'tan': '#D2B48C', 'ivory': '#FFFFF0', 'honeydew': '#F0FFF0', 'azure': '#F0FFFF', 'lavender': '#E6E6FA', 'rose': '#FFE4E1', 'lilac': '#C8A2C8', 'mint': '#98FF98', 'peach': '#FFDAB9', 'sky blue': '#87CEEB', 'royal blue': '#4169E1', 'cobalt': '#0047AB', 'denim': '#1560BD', 'emerald': '#50C878', 'mint green': '#98FF98', 'lime green': '#32CD32', 'forest green': '#228B22', 'olive green': '#6B8E23', 'mustard yellow': '#FFDB58', 'lemon': '#FFFACD', 'coral pink': '#F88379', 'hot pink': '#FF69B4', 'baby pink': '#F4C2C2', 'ruby': '#E0115F', 'scarlet': '#FF2400', 'wine': '#722F37', 'terracotta': '#E2725B', 'bronze': '#CD7F32', 'light blue': '#ADD8E6', 'dark green': '#006400', 'light grey': '#D3D3D3', 'dark blue': '#00008B', 'light green': '#90EE90', 'dark grey': '#A9A9A9', 'multicolour': '#CCCCCC', 'check': '#A9A9A9', 'floral': '#A9A9A9', 'animal print': '#A9A9A9', 'striped': '#A9A9A9', 'camouflage': '#A9A9A9', 'geometric': '#A9A9A9', 'abstract': '#A9A9A9'
-        };
+        const colorMap = { 'black': '#000000', 'white': '#FFFFFF', 'grey': '#808080', 'gray': '#808080', 'silver': '#C0C0C0', 'red': '#FF0000', 'maroon': '#800000', 'orange': '#FFA500', 'yellow': '#FFFF00', 'olive': '#800000', 'lime': '#00FF00', 'green': '#008000', 'aqua': '#00FFFF', 'cyan': '#00FFFF', 'teal': '#008080', 'blue': '#0000FF', 'navy': '#000080', 'fuchsia': '#FF00FF', 'magenta': '#FF00FF', 'purple': '#800080', 'pink': '#FFC0CB', 'brown': '#A52A2A', 'beige': '#F5F5DC', 'khaki': '#F0E68C', 'gold': '#FFD700', 'cream': '#FFFDD0', 'burgundy': '#800020', 'mustard': '#FFDB58', 'turquoise': '#40E0D0', 'indigo': '#4B0082', 'violet': '#EE82EE', 'plum': '#DDA0DD', 'orchid': '#DA70D6', 'salmon': '#FA8072', 'coral': '#FF7F50', 'chocolate': '#D2691E', 'tan': '#D2B48C', 'ivory': '#FFFFF0', 'honeydew': '#F0FFF0', 'azure': '#F0FFFF', 'lavender': '#E6E6FA', 'rose': '#FFE4E1', 'lilac': '#C8A2C8', 'mint': '#98FF98', 'peach': '#FFDAB9', 'sky blue': '#87CEEB', 'royal blue': '#4169E1', 'cobalt': '#0047AB', 'denim': '#1560BD', 'emerald': '#50C878', 'mint green': '#98FF98', 'lime green': '#32CD32', 'forest green': '#228B22', 'olive green': '#6B8E23', 'mustard yellow': '#FFDB58', 'lemon': '#FFFACD', 'coral pink': '#F88379', 'hot pink': '#FF69B4', 'baby pink': '#F4C2C2', 'ruby': '#E0115F', 'scarlet': '#FF2400', 'wine': '#722F37', 'terracotta': '#E2725B', 'bronze': '#CD7F32', 'light blue': '#ADD8E6', 'dark green': '#006400', 'light grey': '#D3D3D3', 'dark blue': '#00008B', 'light green': '#90EE90', 'dark grey': '#A9A9A9', 'multicolour': '#CCCCCC', 'check': '#A9A9A9', 'floral': '#A9A9A9', 'animal print': '#A9A9A9', 'striped': '#A9A9A9', 'camouflage': '#A9A9A9', 'geometric': '#A9A9A9', 'abstract': '#A9A9A9' };
         return colorMap[firstColor] || null;
       }
       
-      // Main Filtering and Rendering Logic
+      function renderActiveFilters() {
+        activeFiltersContainer.innerHTML = '';
+        let hasActiveFilters = false;
+        Object.keys(currentFilters).forEach(type => {
+            currentFilters[type].forEach(value => {
+                hasActiveFilters = true;
+                const btn = document.createElement('button');
+                btn.className = 'flex items-center gap-1.5 bg-primary text-primary-foreground text-xs font-semibold pl-3 pr-2 py-1 rounded-full hover:bg-vinted-teal-light transition-colors';
+                btn.dataset.filterType = type;
+                btn.dataset.filterValue = value;
+                const typeName = type.charAt(0).toUpperCase() + type.slice(1);
+                btn.innerHTML = `<span>${typeName}: ${value}</span><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>`;
+                activeFiltersContainer.appendChild(btn);
+            });
+        });
+        activeFiltersContainer.classList.toggle('hidden', !hasActiveFilters);
+      }
+
       function renderSales() {
+        renderActiveFilters();
         if (!allSales || allSales.length === 0) {
           salesContainer.innerHTML = `<p class="col-span-full text-center text-muted-foreground">No sales data found.</p>`;
           return;
         }
-
         const filteredSales = allSales.filter(item => {
           const query = searchQuery.toLowerCase();
           const searchMatch = !query || (item.name && item.name.toLowerCase().includes(query)) || (item.link && item.link.toLowerCase().includes(query));
@@ -253,7 +227,6 @@ const extractBrand = subtitle => {
           const sizeMatch = currentFilters.size.length === 0 || (size && currentFilters.size.includes(size));
           return searchMatch && brandMatch && colorMatch && sizeMatch;
         });
-
         const sortedSales = [...filteredSales].sort((a, b) => {
           switch (currentSort) {
             case 'time_asc': return getSaleDurationInMs(a) - getSaleDurationInMs(b);
@@ -262,88 +235,68 @@ const extractBrand = subtitle => {
             default: return new Date(b.soldAt) - new Date(a.soldAt);
           }
         });
-
         if (sortedSales.length === 0) {
-          salesContainer.innerHTML = `<p class="col-span-full text-center text-muted-foreground">No items match your filters.</p>`;
+          salesContainer.innerHTML = `<p class="col-span-full text-center text-muted-foreground py-10">No items match your filters.</p>`;
           return;
         }
-
-        // ** FIXED ** Restored the detailed HTML generation for each card
         salesContainer.innerHTML = sortedSales.map(item => {
-            const saleSpeed = (() => {
-                if (item.startedAt && item.soldAt) {
-                    const diffMs = getSaleDurationInMs(item);
-                    if (diffMs === Infinity) return null;
-                    const diffMins = Math.floor(diffMs / 60000);
-                    const diffSecs = Math.floor((diffMs % 60000) / 1000);
-                    return `${diffMins}m ${diffSecs}s`;
-                }
-                return null;
-            })();
-            const soldTimeAgo = (() => {
-                if (!item.soldAt) return '';
-                const seconds = Math.round((new Date() - new Date(item.soldAt)) / 1000);
-                const minutes = Math.round(seconds / 60), hours = Math.round(minutes / 60), days = Math.round(hours / 24);
-                if (seconds < 60) return `${seconds}s ago`; if (minutes < 60) return `${minutes}m ago`;
-                if (hours < 24) return `${hours}h ago`; return `${days}d ago`;
-            })();
+            const saleSpeed = (() => { if (item.startedAt && item.soldAt) { const diffMs = getSaleDurationInMs(item); if (diffMs === Infinity) return null; const diffMins = Math.floor(diffMs / 60000); const diffSecs = Math.floor((diffMs % 60000) / 1000); return `${diffMins}m ${diffSecs}s`; } return null; })();
+            const soldTimeAgo = (() => { if (!item.soldAt) return ''; const seconds = Math.round((new Date() - new Date(item.soldAt)) / 1000); const minutes = Math.round(seconds / 60), hours = Math.round(minutes / 60), days = Math.round(hours / 24); if (seconds < 60) return `${seconds}s ago`; if (minutes < 60) return `${minutes}m ago`; if (hours < 24) return `${hours}h ago`; return `${days}d ago`; })();
             const size = extractSize(item.subtitle);
             const colorHex = mapColorNameToHex(item.color_name) || '#CCCCCC';
             const isWhite = colorHex.toUpperCase() === '#FFFFFF';
             const borderClass = isWhite ? 'border border-gray-400' : '';
             const colorCircleHTML = `<div class="w-4 h-4 rounded-full ${borderClass}" style="background-color: ${colorHex};"></div>`;
-            const sizeAndColorHTML = size ? `
-                <div class="flex items-center gap-1.5 flex-shrink-0">
-                <span class="text-xs font-bold text-gray-800">${size}</span>
-                ${colorCircleHTML}
-                </div>
-            ` : '';
-            const saleDetailsHTML = `
-                <div class="flex justify-between items-center mt-1 text-xs text-muted-foreground">
-                <span>${saleSpeed ? `Sold in: ${saleSpeed}` : ''}</span>
-                <span>${soldTimeAgo || ''}</span>
-                </div>
-            `;
-            return `
-            <div class="bg-card text-card-foreground border rounded-lg overflow-hidden shadow flex flex-col">
-              <a href="${item.link}" target="_blank" rel="noopener noreferrer" class="block relative"><img src="${item.image || 'https://via.placeholder.com/300'}" alt="${item.name}" class="w-full h-72 object-cover" loading="lazy" /></a>
-              <div class="p-3 flex flex-col flex-grow">
-                <div class="flex justify-between items-start gap-2">
-                  <p class="font-semibold text-sm">${item.name}</p>
-                  ${sizeAndColorHTML}
-                </div>
-                ${saleDetailsHTML}
-                <div class="flex-grow"></div>
-                <p class="text-lg font-bold mt-2">${item.price}</p>
-                <a href="${item.link}" target="_blank" rel="noopener noreferrer" class="mt-3 text-center w-full bg-transparent border border-primary text-primary font-bold py-2 px-4 rounded-md hover:bg-primary hover:text-primary-foreground transition-colors">View</a>
-              </div>
-            </div>`;
+            const sizeAndColorHTML = size ? `<div class="flex items-center gap-1.5 flex-shrink-0"><span class="text-xs font-bold text-gray-800">${size}</span>${colorCircleHTML}</div>` : '';
+            const saleDetailsHTML = `<div class="flex justify-between items-center mt-1 text-xs text-muted-foreground"><span>${saleSpeed ? `Sold in: ${saleSpeed}` : ''}</span><span>${soldTimeAgo || ''}</span></div>`;
+            return `<div class="bg-card text-card-foreground border rounded-lg overflow-hidden shadow flex flex-col"><a href="${item.link}" target="_blank" rel="noopener noreferrer" class="block relative"><img src="${item.image || 'https://via.placeholder.com/300'}" alt="${item.name}" class="w-full h-72 object-cover" loading="lazy" /></a><div class="p-3 flex flex-col flex-grow"><div class="flex justify-between items-start gap-2"><p class="font-semibold text-sm">${item.name}</p>${sizeAndColorHTML}</div>${saleDetailsHTML}<div class="flex-grow"></div><p class="text-lg font-bold mt-2">${item.price}</p><a href="${item.link}" target="_blank" rel="noopener noreferrer" class="mt-3 text-center w-full bg-transparent border border-primary text-primary font-bold py-2 px-4 rounded-md hover:bg-primary hover:text-primary-foreground transition-colors">View</a></div></div>`;
         }).join("");
       }
 
-      // Filter UI and Population
       function setupFilter(filterType) {
         const btn = document.getElementById(`${filterType}FilterBtn`);
         const dropdown = document.getElementById(`${filterType}FilterDropdown`);
-        const list = document.getElementById(`${filterType}FilterList`);
         const applyBtn = document.getElementById(`apply${filterType.charAt(0).toUpperCase() + filterType.slice(1)}Filter`);
-        const btnText = document.getElementById(`${filterType}FilterBtnText`);
-
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
           document.querySelectorAll('.filter-dropdown').forEach(d => { if (d !== dropdown) d.classList.add('hidden'); });
           dropdown.classList.toggle('hidden');
         });
-
         applyBtn.addEventListener('click', () => {
+          const list = document.getElementById(`${filterType}FilterList`);
           const checked = list.querySelectorAll('input:checked');
           currentFilters[filterType] = Array.from(checked).map(cb => cb.value);
           dropdown.classList.add('hidden');
           const count = currentFilters[filterType].length;
+          const btnText = document.getElementById(`${filterType}FilterBtnText`);
           btnText.textContent = `${filterType.charAt(0).toUpperCase() + filterType.slice(1)}${count > 0 ? ` (${count})` : ''}`;
           btn.classList.toggle('filter-btn-active', count > 0);
           renderSales();
         });
+      }
+
+      function setupSortDropdown() {
+          const btn = document.getElementById('sortBtn');
+          const dropdown = document.getElementById('sortDropdown');
+          const btnText = document.getElementById('sortBtnText');
+          const options = document.querySelectorAll('.sort-item');
+          btn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              document.querySelectorAll('.filter-dropdown').forEach(d => { if (d !== dropdown) d.classList.add('hidden'); });
+              dropdown.classList.toggle('hidden');
+          });
+          options.forEach(option => {
+              option.addEventListener('click', () => {
+                  currentSort = option.dataset.sortValue;
+                  btnText.textContent = option.textContent;
+                  options.forEach(opt => opt.classList.remove('sort-item-active'));
+                  option.classList.add('sort-item-active');
+                  dropdown.classList.add('hidden');
+                  renderSales();
+              });
+          });
+          document.querySelector(`.sort-item[data-sort-value="${currentSort}"]`).classList.add('sort-item-active');
+          btnText.textContent = document.querySelector(`.sort-item[data-sort-value="${currentSort}"]`).textContent;
       }
 
       function populateFilters() {
@@ -353,55 +306,62 @@ const extractBrand = subtitle => {
           const size = extractSize(item.subtitle); if (size) sizes.add(size);
           const color = item.color_name ? item.color_name.split(',')[0].trim() : null; if(color) colors.add(color);
         });
-        
-        const createCheckbox = (name, value, isChecked) => `
-            <label class="flex items-center w-full p-1.5 rounded hover:bg-gray-100 cursor-pointer">
-              <input type="checkbox" name="${name}" value="${value}" ${isChecked ? 'checked' : ''} class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary">
-              <span class="ml-2 text-sm text-gray-800">${value}</span>
-            </label>`;
-
-        document.getElementById('brandFilterList').innerHTML = [...brands].sort().map(b => createCheckbox('brand', b, currentFilters.brand.includes(b))).join('');
-        document.getElementById('colorFilterList').innerHTML = [...colors].sort().map(c => createCheckbox('color', c, currentFilters.color.includes(c))).join('');
-        document.getElementById('sizeFilterList').innerHTML = sortSizes([...sizes]).map(s => createCheckbox('size', s, currentFilters.size.includes(s))).join('');
+        const createCheckbox = (name, value, isChecked) => `<label class="flex items-center w-full p-1.5 rounded hover:bg-gray-100 cursor-pointer"><input type="checkbox" name="${name}" value="${value}" ${isChecked ? 'checked' : ''} class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"><span class="ml-2 text-sm text-gray-800">${value}</span></label>`;
+        document.getElementById('brandFilterList').innerHTML = [...brands].sort().map(b => createCheckbox('brand', b, currentFilters.brand.includes(b))).join('') || '<p class="text-xs text-gray-500 p-2">No brands found.</p>';
+        document.getElementById('colorFilterList').innerHTML = [...colors].sort().map(c => createCheckbox('color', c, currentFilters.color.includes(c))).join('') || '<p class="text-xs text-gray-500 p-2">No colors found.</p>';
+        document.getElementById('sizeFilterList').innerHTML = sortSizes([...sizes]).map(s => createCheckbox('size', s, currentFilters.size.includes(s))).join('') || '<p class="text-xs text-gray-500 p-2">No sizes found.</p>';
       }
 
-      // Data Fetching
       async function fetchSales() {
+        salesContainer.innerHTML = `<p class="col-span-full text-center text-muted-foreground py-10">Loading sales data...</p>`;
         try {
           const res = await fetch(`${window.location.origin}/api/sales`);
+          if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
           allSales = await res.json();
           populateFilters();
           renderSales();
         } catch (err) {
           console.error("Failed to fetch sales:", err);
-          salesContainer.innerHTML = `<p class="col-span-full text-destructive text-center">Error loading sales data.</p>`;
+          salesContainer.innerHTML = `<p class="col-span-full text-destructive text-center py-10">Error loading sales data. Please check the console.</p>`;
         }
       }
 
-      // Initial Setup & Event Listeners
       document.addEventListener('DOMContentLoaded', () => {
         ['brand', 'color', 'size'].forEach(setupFilter);
-        
-        // Close dropdowns on outside click
+        setupSortDropdown();
         window.addEventListener('click', () => document.querySelectorAll('.filter-dropdown').forEach(d => d.classList.add('hidden')));
         document.querySelectorAll('.filter-dropdown').forEach(d => d.addEventListener('click', e => e.stopPropagation()));
-        
         searchBar.addEventListener('input', e => { searchQuery = e.target.value; renderSales(); });
-        sortOptions.addEventListener('change', e => { currentSort = e.target.value; renderSales(); });
-        
+        activeFiltersContainer.addEventListener('click', e => {
+            const removeBtn = e.target.closest('button');
+            if (!removeBtn) return;
+            const type = removeBtn.dataset.filterType;
+            const value = removeBtn.dataset.filterValue;
+            currentFilters[type] = currentFilters[type].filter(item => item !== value);
+            const checkbox = document.querySelector(`#${type}FilterList input[value="${value}"]`);
+            if (checkbox) checkbox.checked = false;
+            const btn = document.getElementById(`${type}FilterBtn`);
+            const btnText = document.getElementById(`${type}FilterBtnText`);
+            const count = currentFilters[type].length;
+            btnText.textContent = `${type.charAt(0).toUpperCase() + type.slice(1)}${count > 0 ? ` (${count})` : ''}`;
+            btn.classList.toggle('filter-btn-active', count > 0);
+            renderSales();
+        });
         resetFiltersBtn.addEventListener('click', () => {
           searchBar.value = ''; searchQuery = '';
-          currentSort = 'newest'; sortOptions.value = 'newest';
+          currentSort = 'newest';
           currentFilters = { brand: [], color: [], size: [] };
           ['brand', 'color', 'size'].forEach(type => {
             document.getElementById(`${type}FilterBtnText`).textContent = type.charAt(0).toUpperCase() + type.slice(1);
             document.getElementById(`${type}FilterBtn`).classList.remove('filter-btn-active');
+            const list = document.getElementById(`${type}FilterList`);
+            list.querySelectorAll('input:checked').forEach(cb => cb.checked = false);
           });
-          populateFilters();
+          setupSortDropdown();
           renderSales();
         });
-
         fetchSales();
+        setInterval(fetchSales, 10000);
       });
     </script>
   </body>
