@@ -1,4 +1,4 @@
-// Enhanced main.js - With Dynamic/Cascading Filters
+// Enhanced main.js - With Corrected Active Filter Tags
 class VintedDashboard {
   constructor() {
     this.salesContainer = document.getElementById("salesContainer");
@@ -6,6 +6,7 @@ class VintedDashboard {
     this.searchBar = document.getElementById("searchBar");
     this.resetFiltersBtn = document.getElementById("resetFiltersBtn");
     this.statsDisplay = document.getElementById("statsDisplay");
+    this.activeFiltersContainer = document.getElementById('activeFiltersContainer');
     
     this.sortBtn = document.getElementById('sortBtn');
     this.sortBtnText = document.getElementById('sortBtnText');
@@ -100,16 +101,19 @@ class VintedDashboard {
     // 1. Get the list of items that match the current filters. This list will be rendered.
     const filteredSales = this.getFilteredSales();
 
-    // 2. Re-populate the filter dropdowns to be context-aware.
+    // 2. Render the active filter tags based on the current state.
+    this.renderActiveFilters();
+
+    // 3. Re-populate the filter dropdowns to be context-aware.
     this.populateFilters();
 
-    // 3. Sort the filtered list.
+    // 4. Sort the filtered list.
     const sortedSales = this.sortSales(filteredSales);
 
-    // 4. Update the on-screen stats.
+    // 5. Update the on-screen stats.
     this.updateStats(sortedSales);
 
-    // 5. Render the final list of cards.
+    // 6. Render the final list of cards.
     if (sortedSales.length === 0) {
         this.salesContainer.innerHTML = `<p class="col-span-full text-center text-muted-foreground py-12">No items match your filters.</p>`;
         return;
@@ -124,6 +128,27 @@ class VintedDashboard {
         const sizeAndColorHTML = size || colorCircleHTML ? `<div class="flex items-center gap-1.5 flex-shrink-0">${size ? `<span class="text-xs font-bold text-gray-800 bg-gray-100 px-2 py-0.5 rounded">${size}</span>` : ''}${colorCircleHTML}</div>` : '';
         return `<div class="bg-card text-card-foreground border rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300 flex flex-col"><a href="${item.link}" target="_blank" rel="noopener noreferrer" class="block relative group"><img src="${item.image || 'https://placehold.co/400x600/f1f5f9/94a3b8?text=Sold'}" alt="${item.name || 'Sold item'}" class="w-full aspect-[3/4] object-cover group-hover:opacity-90 transition-opacity" loading="lazy" onerror="this.src='https://placehold.co/400x600/f1f5f9/94a3b8?text=No+Image'" /></a><div class="p-3 flex flex-col flex-grow"><div class="flex justify-between items-start gap-2 mb-2"><p class="font-semibold text-sm line-clamp-2 leading-tight">${item.name || 'Untitled Item'}</p>${sizeAndColorHTML}</div><div class="flex justify-between items-center text-xs text-muted-foreground mb-2"><span class="truncate">${saleSpeed ? `Sold in: ${saleSpeed}` : ''}</span><span class="flex-shrink-0 ml-2">${soldTimeAgo}</span></div><div class="flex-grow"></div><p class="text-lg font-bold text-primary mb-3">${item.price || ''}</p><a href="${item.link}" target="_blank" rel="noopener noreferrer" class="block text-center w-full bg-transparent border border-primary text-primary font-bold py-2 px-4 rounded-md hover:bg-primary hover:text-primary-foreground transition-all duration-200 text-sm">View on Vinted</a></div></div>`;
     }).join("");
+  }
+
+  /**
+   * Renders the active filter tags above the sales grid.
+   */
+  renderActiveFilters() {
+    this.activeFiltersContainer.innerHTML = ''; // Clear previous tags
+
+    Object.entries(this.currentFilters).forEach(([type, values]) => {
+        values.forEach(value => {
+            const tag = document.createElement('div');
+            tag.className = 'flex items-center gap-2 bg-primary/10 text-primary-hover font-semibold text-sm px-3 py-1 rounded-full';
+            tag.innerHTML = `
+                <span>${value}</span>
+                <button class="remove-filter-btn" data-filter-type="${type}" data-filter-value="${value}">
+                    <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            `;
+            this.activeFiltersContainer.appendChild(tag);
+        });
+    });
   }
 
   /**
@@ -142,13 +167,9 @@ class VintedDashboard {
         const size = this.extractSize(item.subtitle);
         const color = item.color_name ? item.color_name.split(',')[0].trim() : null;
 
-        const brandMatch = this.currentFilters.brand.length === 0 || (brand && this.currentFilters.brand.includes(brand));
-        const colorMatch = this.currentFilters.color.length === 0 || (color && this.currentFilters.color.includes(color));
-        const sizeMatch = this.currentFilters.size.length === 0 || (size && this.currentFilters.size.includes(size));
-
-        if (ignoreFilterType === 'brand') return colorMatch && sizeMatch;
-        if (ignoreFilterType === 'color') return brandMatch && sizeMatch;
-        if (ignoreFilterType === 'size') return brandMatch && colorMatch;
+        const brandMatch = ignoreFilterType === 'brand' || this.currentFilters.brand.length === 0 || (brand && this.currentFilters.brand.includes(brand));
+        const colorMatch = ignoreFilterType === 'color' || this.currentFilters.color.length === 0 || (color && this.currentFilters.color.includes(color));
+        const sizeMatch = ignoreFilterType === 'size' || this.currentFilters.size.length === 0 || (size && this.currentFilters.size.includes(size));
         
         return brandMatch && colorMatch && sizeMatch;
     });
@@ -158,36 +179,18 @@ class VintedDashboard {
    * Re-populates all filter dropdowns based on context-aware item lists.
    */
   populateFilters() {
-    // For each filter, get a list of items that ignores that filter's own selection
     const itemsForBrandFilter = this.getFilteredSales('brand');
     const itemsForColorFilter = this.getFilteredSales('color');
     const itemsForSizeFilter = this.getFilteredSales('size');
-
-    // Calculate available options and counts from these context-aware lists
     const brandCounts = new Map();
-    itemsForBrandFilter.forEach(item => {
-        const brand = this.extractBrand(item);
-        if (brand) brandCounts.set(brand, (brandCounts.get(brand) || 0) + 1);
-    });
-
+    itemsForBrandFilter.forEach(item => { const brand = this.extractBrand(item); if (brand) brandCounts.set(brand, (brandCounts.get(brand) || 0) + 1); });
     const colorCounts = new Map();
-    itemsForColorFilter.forEach(item => {
-        const color = item.color_name ? item.color_name.split(',')[0].trim() : null;
-        if (color) colorCounts.set(color, (colorCounts.get(color) || 0) + 1);
-    });
-
+    itemsForColorFilter.forEach(item => { const color = item.color_name ? item.color_name.split(',')[0].trim() : null; if (color) colorCounts.set(color, (colorCounts.get(color) || 0) + 1); });
     const sizeCounts = new Map();
-    itemsForSizeFilter.forEach(item => {
-        const size = this.extractSize(item.subtitle);
-        if (size) sizeCounts.set(size, (sizeCounts.get(size) || 0) + 1);
-    });
-
-    // Sort and store the final options
+    itemsForSizeFilter.forEach(item => { const size = this.extractSize(item.subtitle); if (size) sizeCounts.set(size, (sizeCounts.get(size) || 0) + 1); });
     this.filterOptions.brand = [...brandCounts.entries()].sort(([, a], [, b]) => b - a).map(([v, c]) => ({ value: v, count: c }));
     this.filterOptions.color = [...colorCounts.entries()].sort(([, a], [, b]) => b - a).map(([v, c]) => ({ value: v, count: c }));
     this.filterOptions.size = this.sortSizes([...sizeCounts.entries()].map(([v, c]) => ({ value: v, count: c })));
-
-    // Update the UI
     this.updateFilterDropdown('brand', this.filterOptions.brand);
     this.updateFilterDropdown('color', this.filterOptions.color);
     this.updateFilterDropdown('size', this.filterOptions.size);
@@ -239,7 +242,6 @@ class VintedDashboard {
       const salesData = await res.json();
       this.allSales = salesData;
       this.lastUpdateTime = new Date();
-      // Initial render which will also populate filters for the first time
       this.renderSales();
     } catch (err) {
       console.error("Failed to fetch sales:", err);
@@ -248,11 +250,8 @@ class VintedDashboard {
   }
 
   setupEventListeners() {
-    // Search
     this.searchBar.addEventListener('input', e => { this.searchQuery = e.target.value; this.renderSales(); });
-    // Reset
     this.resetFiltersBtn.addEventListener('click', () => { window.location.reload(); });
-    // Filters
     ['brand', 'color', 'size'].forEach(filterType => this.setupFilter(filterType));
     
     // Sort Dropdown
@@ -271,13 +270,25 @@ class VintedDashboard {
         });
     }
 
-    // Global click listener to close all dropdowns
-    window.addEventListener('click', () => {
-      document.querySelectorAll('.filter-dropdown, #sortDropdown').forEach(d => d.classList.add('hidden'));
+    // Event listener for removing active filter tags
+    this.activeFiltersContainer.addEventListener('click', e => {
+        const removeBtn = e.target.closest('.remove-filter-btn');
+        if (removeBtn) {
+            const { filterType, filterValue } = removeBtn.dataset;
+            this.currentFilters[filterType] = this.currentFilters[filterType].filter(val => val !== filterValue);
+            
+            // Also update the main filter button text
+            const btnText = document.getElementById(`${filterType}FilterBtnText`);
+            const count = this.currentFilters[filterType].length;
+            btnText.textContent = `${filterType.charAt(0).toUpperCase() + filterType.slice(1)}${count > 0 ? ` (${count})` : ''}`;
+            document.getElementById(`${filterType}FilterBtn`).classList.toggle('filter-btn-active', count > 0);
+
+            this.renderSales();
+        }
     });
-    document.querySelectorAll('.filter-dropdown, #sortDropdown').forEach(d => {
-      d.addEventListener('click', e => e.stopPropagation());
-    });
+
+    window.addEventListener('click', () => { document.querySelectorAll('.filter-dropdown, #sortDropdown').forEach(d => d.classList.add('hidden')); });
+    document.querySelectorAll('.filter-dropdown, #sortDropdown').forEach(d => { d.addEventListener('click', e => e.stopPropagation()); });
   }
 
   setupFilter(filterType) {
@@ -292,7 +303,6 @@ class VintedDashboard {
       document.querySelectorAll('.filter-dropdown, #sortDropdown').forEach(d => { if (d !== dropdown) d.classList.add('hidden'); });
       dropdown.classList.toggle('hidden');
       if (!dropdown.classList.contains('hidden')) {
-          // Do not reset search, but re-filter the displayed options
           this.updateFilterDropdown(filterType, this.filterOptions[filterType]);
           searchInput.focus();
       }
@@ -308,12 +318,12 @@ class VintedDashboard {
       const list = document.getElementById(`${filterType}FilterList`);
       const btnText = document.getElementById(`${filterType}FilterBtnText`);
       const checked = list.querySelectorAll('input:checked');
-      this.currentFilters[filterType] = Array.from(checked).map(cb => cb.value);
+      this.currentFilters[filterType].length = 0; // Clear the array first
+      this.currentFilters[filterType].push(...Array.from(checked).map(cb => cb.value));
       dropdown.classList.add('hidden');
       const count = this.currentFilters[filterType].length;
       btnText.textContent = `${filterType.charAt(0).toUpperCase() + filterType.slice(1)}${count > 0 ? ` (${count})` : ''}`;
       btn.classList.toggle('filter-btn-active', count > 0);
-      // This is the key that triggers the dynamic update
       this.renderSales();
     });
   }
