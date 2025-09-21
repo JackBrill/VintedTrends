@@ -198,13 +198,59 @@
         const sizePart = subtitle.split('·')[0].trim();
         return sizePart ? sizePart.toUpperCase() : null;
       }
-
+      
+      // ** MODIFIED FUNCTION **
       function extractBrand(subtitle) {
         if (!subtitle || typeof subtitle !== 'string') return null;
-        const parts = subtitle.split('·');
-        return parts.length > 1 ? parts[1].trim() : null;
+
+        const conditionBlacklist = [
+            'new with tags', 'new without tags', 'very good', 'good', 'satisfactory'
+        ].map(c => c.toLowerCase());
+
+        const parts = subtitle.split('·').map(p => p.trim());
+        
+        // Start looking for the brand from the second element, as the first is usually the size.
+        for (let i = 1; i < parts.length; i++) {
+            const part = parts[i];
+            // The brand is the first part that is not a known condition.
+            if (part && !conditionBlacklist.includes(part.toLowerCase())) {
+                return part;
+            }
+        }
+        return null; // No brand found
       }
 
+      // ** NEW FUNCTION **
+      function sortSizes(sizes) {
+        const sizeOrder = {
+          'XXS': 1, 'XS': 2, 'S': 3, 'M': 4, 'L': 5, 'XL': 6, 
+          'XXL': 7, '2XL': 7, 'XXXL': 8, '3XL': 8, 'XXXXL': 9, '4XL': 9, '5XL': 10
+        };
+        
+        return sizes.sort((a, b) => {
+          const aUpper = a.toUpperCase();
+          const bUpper = b.toUpperCase();
+          
+          const aIsOrdered = sizeOrder[aUpper];
+          const bIsOrdered = sizeOrder[bUpper];
+          const aIsNumeric = !isNaN(parseFloat(a)) && isFinite(a);
+          const bIsNumeric = !isNaN(parseFloat(b)) && isFinite(b);
+
+          if (aIsOrdered && bIsOrdered) return sizeOrder[aUpper] - sizeOrder[bUpper];
+          if (aIsNumeric && bIsNumeric) return parseFloat(a) - parseFloat(b);
+          
+          // Group sizes: ordered text, then numeric, then other text
+          if (aIsOrdered && !bIsOrdered) return -1;
+          if (!aIsOrdered && bIsOrdered) return 1;
+          if (aIsNumeric && !bIsNumeric) return -1;
+          if (!aIsNumeric && bIsNumeric) return 1;
+
+          // Fallback to alphabetical sort for "One Size" etc.
+          return a.localeCompare(b);
+        });
+      }
+
+      // ** MODIFIED FUNCTION **
       function populateFilters() {
         if (!allSales) return;
         const brands = new Set();
@@ -223,12 +269,18 @@
             if (primaryColor) colors.add(primaryColor);
           }
         });
+        
+        const sortedBrands = [...brands].sort((a, b) => a.localeCompare(b));
+        const brandOptions = sortedBrands.map(value => `<option value="${value}">${value}</option>`).join('');
+        brandFilter.innerHTML = '<option value="all">All Brands</option>' + brandOptions;
 
-        const createOptions = (set) => [...set].sort((a, b) => a.localeCompare(b)).map(value => `<option value="${value}">${value}</option>`).join('');
-
-        brandFilter.innerHTML = '<option value="all">All Brands</option>' + createOptions(brands);
-        colorFilter.innerHTML = '<option value="all">All Colors</option>' + createOptions(colors);
-        sizeFilter.innerHTML = '<option value="all">All Sizes</option>' + createOptions(sizes);
+        const sortedColors = [...colors].sort((a, b) => a.localeCompare(b));
+        const colorOptions = sortedColors.map(value => `<option value="${value}">${value}</option>`).join('');
+        colorFilter.innerHTML = '<option value="all">All Colors</option>' + colorOptions;
+        
+        const sortedSizes = sortSizes(Array.from(sizes));
+        const sizeOptions = sortedSizes.map(value => `<option value="${value}">${value}</option>`).join('');
+        sizeFilter.innerHTML = '<option value="all">All Sizes</option>' + sizeOptions;
       }
 
       function mapColorNameToHex(colorName) {
