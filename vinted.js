@@ -1,4 +1,4 @@
-// == THE DEFINITIVE, STABLE VERSION - PLEASE USE THIS ==
+// This is the correct version. Ensure headless is set to false.
 import { chromium } from "playwright-extra";
 import stealthPlugin from "puppeteer-extra-plugin-stealth";
 import fs from "fs";
@@ -13,7 +13,7 @@ const BATCH_SIZE = 200;
 const MAX_PAGES_TO_SCAN = 10;
 const CHECK_INTERVAL = 60 * 1000;
 const BATCH_DURATION = 10 * 60 * 1000;
-const CONCURRENT_CHECKS = 3; // SAFE and STABLE value
+const CONCURRENT_CHECKS = 3;
 
 const SALES_FILE = path.join(process.cwd(), "sales.json");
 
@@ -53,7 +53,11 @@ async function collectItems() {
         console.log(`\n=== Data Collection Attempt ${attempt} ===`);
         const proxy = getRandomProxy();
         console.log(`Using proxy: ${proxy.host}:${proxy.port}`);
-        const browser = await chromium.launch({ headless: false, slowMo: 50, args: ['--start-maximized'] });
+        const browser = await chromium.launch({ 
+            headless: false, 
+            slowMo: 50,
+            args: ['--start-maximized'] 
+        });
         const context = await browser.newContext({
             proxy: { server: `http://${proxy.host}:${proxy.port}`, username: proxy.user, password: proxy.pass },
             userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
@@ -120,12 +124,10 @@ async function collectItems() {
 
 async function checkSingleItem(page, item) {
     if (item.sold) return;
-    for (let i = 0; i < 2; i++) { // Retry loop: try up to 2 times
+    for (let i = 0; i < 2; i++) {
         try {
             console.log(`🔄 Checking "${item.name}" (Attempt ${i + 1})`);
-            // Correct 30-second timeout
             await page.goto(item.link, { waitUntil: "domcontentloaded", timeout: 30000 });
-
             const soldElement = await page.$('[data-testid="item-status--content"]');
             if (soldElement && (await soldElement.innerText()).toLowerCase().includes("sold")) {
                 item.sold = true;
@@ -149,13 +151,13 @@ async function checkSingleItem(page, item) {
                     timestamp: new Date().toISOString(),
                 });
             }
-            return; // Success, exit the retry loop
+            return;
         } catch (err) {
             console.log(`Attempt ${i + 1} failed for "${item.name}":`, err.message.split('\n')[0]);
             if (i === 1) {
                 console.log(`❌ Final attempt failed for "${item.name}". Skipping this check cycle.`);
             } else {
-                await page.waitForTimeout(2000); // Wait before retrying
+                await page.waitForTimeout(2000);
             }
         }
     }
