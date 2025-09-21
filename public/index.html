@@ -341,52 +341,11 @@
         document.getElementById('sizeFilterList').innerHTML = sortSizes([...sizes]).map(s => createCheckbox('size', s, currentFilters.size.includes(s))).join('');
       }
 
-      // Data Fetching - Using mock data for demonstration
+      // Data Fetching
       async function fetchSales() {
         try {
-          // Mock data for testing - replace with your actual API call
-          const mockData = [
-            {
-              "name": "Nike",
-              "subtitle": "L · Very good",
-              "price": "£5.00",
-              "link": "https://www.vinted.co.uk/items/7133278307-nike-tracksuit-bottom?referrer=catalog",
-              "sold": true,
-              "startedAt": "2025-09-21T11:49:30.451Z",
-              "soldAt": "2025-09-21T11:52:17.121Z",
-              "image": "https://images1.vinted.net/t/01_02631_Z1tH7nhEMFnVWHdVq54nLYrb/f800/1758446885.jpeg?s=1b54963b736ed72115304b6260fe6aff216f3feb",
-              "color_name": "Grey",
-              "color_hex": "#808080"
-            },
-            {
-              "name": "Adidas",
-              "subtitle": "M · Good",
-              "price": "£8.00",
-              "link": "https://www.vinted.co.uk/items/example",
-              "sold": true,
-              "startedAt": "2025-09-21T10:30:00.000Z",
-              "soldAt": "2025-09-21T10:45:00.000Z",
-              "image": "https://via.placeholder.com/300",
-              "color_name": "Black",
-              "color_hex": "#000000"
-            },
-            {
-              "name": "Puma",
-              "subtitle": "S · New with tags",
-              "price": "£12.00",
-              "link": "https://www.vinted.co.uk/items/example2",
-              "sold": true,
-              "startedAt": "2025-09-21T09:00:00.000Z",
-              "soldAt": "2025-09-21T09:30:00.000Z",
-              "image": "https://via.placeholder.com/300",
-              "color_name": "Blue",
-              "color_hex": "#0000FF"
-            }
-          ];
-          
-          // Replace this with: const res = await fetch(`${window.location.origin}/api/sales`);
-          // allSales = await res.json();
-          allSales = mockData;
+          const res = await fetch('../sales.json');
+          allSales = await res.json();
           
           populateFilters();
           renderSales();
