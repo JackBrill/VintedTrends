@@ -1,3 +1,5 @@
+// server.js
+
 import express from "express";
 import cors from "cors";
 import { spawn } from "child_process";
@@ -6,35 +8,29 @@ import path from "path";
 import { fileURLToPath } from 'url';
 
 const app = express();
-const PORT = 3000; // Your host will likely use a different port
+const PORT = 3000;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const SALES_FILE = path.join(__dirname, "sales.json");
+// UPDATED: Point to mens.json
+const SALES_FILE = path.join(__dirname, "mens.json");
 
 app.use(cors());
 
-// Route to handle the /mens path
-app.get('/mens', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// Serve static files like main.js from the 'public' directory
+// Serve static files from the 'public' directory
 app.use(express.static("public"));
 
-// API endpoint to get sales data
+// API endpoint to get sales data from mens.json
 app.get("/api/sales", (req, res) => {
   let sales = [];
   try {
     if (fs.existsSync(SALES_FILE)) {
       const fileContent = fs.readFileSync(SALES_FILE, "utf-8");
-      if (fileContent) {
-        sales = JSON.parse(fileContent);
-      }
+      sales = fileContent ? JSON.parse(fileContent) : [];
     }
   } catch (err) {
-    console.error("Error parsing sales.json:", err.message);
+    console.error("Error reading or parsing mens.json:", err.message);
   }
   res.json(sales);
 });
@@ -43,12 +39,13 @@ app.get("/api/sales", (req, res) => {
 app.listen(PORT, () => {
   console.log(`✅ Dashboard server running on port ${PORT}`);
   
-  const scraper = spawn('node', ['vinted.js'], {
+  // UPDATED: Run mens.js instead of vinted.js
+  const scraper = spawn('node', ['mens.js'], {
     detached: true,
     stdio: 'inherit'
   });
 
   scraper.unref();
 
-  console.log("🚀 Vinted scraper process has been started.");
+  console.log("🚀 Mens scraper process has been started.");
 });
