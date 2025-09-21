@@ -18,36 +18,21 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
+            background-color: hsl(210, 40%, 98%);
         }
         .font-title {
             font-family: 'Cinzel Decorative', serif;
         }
-        /* Custom scrollbar for a cleaner look */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #f1f5f9;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
-        }
         .filter-btn-active {
-            border-color: #0d9488;
-            background-color: #ccfbf1;
-            color: #0f766e;
-            font-weight: 600;
+            border-color: #007782;
+            background-color: #e0f2f1;
+            color: #004d40;
         }
-        /* Simple pulse animation for loading skeletons */
         .loading-pulse {
             animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
         @keyframes pulse {
-            50% { opacity: .5; }
+            50% { opacity: .6; }
         }
     </style>
 
@@ -61,13 +46,13 @@
                     },
                     colors: {
                         border: 'hsl(214.3 31.8% 91.4%)',
-                        input: 'hsl(214.3 31.8% 91.4%)',
-                        ring: 'hsl(160 84% 39%)',
+                        ring: '#007782',
                         background: 'hsl(0 0% 100%)',
                         foreground: 'hsl(222.2 84% 4.9%)',
                         primary: {
-                            DEFAULT: 'hsl(160 84% 39%)',
-                            foreground: 'hsl(0 0% 100%)',
+                            DEFAULT: '#007782',
+                            foreground: '#ffffff',
+                            hover: '#005f69'
                         },
                         secondary: {
                             DEFAULT: 'hsl(210 40% 98%)',
@@ -77,20 +62,10 @@
                             DEFAULT: 'hsl(210 40% 96.1%)',
                             foreground: 'hsl(215.4 16.3% 46.9%)',
                         },
-                        accent: {
-                            DEFAULT: 'hsl(210 40% 96.1%)',
-                            foreground: 'hsl(222.2 47.4% 11.2%)',
-                        },
                         card: {
                             DEFAULT: 'hsl(0 0% 100%)',
                             foreground: 'hsl(222.2 84% 4.9%)',
-                        },
-                        'brand-teal': {
-                            50: '#f0fdfa', 100: '#ccfbf1', 200: '#99f6e4',
-                            300: '#5eead4', 400: '#2dd4bf', 500: '#14b8a6',
-                            600: '#0d9488', 700: '#0f766e', 800: '#115e59',
-                            900: '#134e4a', 950: '#042f2e',
-                        },
+                        }
                     }
                 }
             }
@@ -98,27 +73,26 @@
     </script>
 </head>
 
-<body class="bg-secondary text-secondary-foreground">
-    <header class="bg-card border-b sticky top-0 z-40 shadow-sm">
+<body class="text-secondary-foreground">
+    <header class="bg-card/95 backdrop-blur-sm border-b sticky top-0 z-40 shadow-sm">
         <div class="container mx-auto px-4 h-16 flex items-center justify-between gap-6">
-            <h1 class="font-title text-2xl md:text-3xl font-bold text-brand-teal-600">VinTrends</h1>
+            <h1 class="font-title text-2xl md:text-3xl font-bold text-primary">VinTrends</h1>
             <div class="flex items-center gap-4">
                 <nav class="hidden md:flex items-center gap-2">
-                    <a href="#" class="text-sm font-semibold text-muted-foreground hover:text-brand-teal-600 transition-colors">Mens</a>
-                    <a href="#" class="text-sm font-semibold text-muted-foreground hover:text-brand-teal-600 transition-colors">Womens</a>
-                    <a href="#" class="text-sm font-semibold text-muted-foreground hover:text-brand-teal-600 transition-colors">Shoes</a>
-                    <a href="#" class="text-sm font-semibold text-muted-foreground hover:text-brand-teal-600 transition-colors">Electronics</a>
+                    <a href="#" class="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors">Mens</a>
+                    <a href="#" class="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors">Womens</a>
+                    <a href="#" class="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors">Shoes</a>
                 </nav>
                 <div class="relative">
                     <svg class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                    <input type="text" id="searchBar" placeholder="Search items..." class="bg-muted border-none rounded-full py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-brand-teal-500 w-full sm:w-64 text-sm">
+                    <input type="text" id="searchBar" placeholder="Search items..." class="bg-muted border-none rounded-full py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-primary w-full sm:w-64 text-sm">
                 </div>
             </div>
         </div>
     </header>
 
     <main class="container mx-auto p-4 md:p-6 lg:p-8">
-        <div class="mb-6 h-24 bg-muted rounded-lg flex items-center justify-center">
+        <div class="mb-6 h-24 bg-muted rounded-lg flex items-center justify-center text-sm text-muted-foreground">
             <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-5225204248300233" data-ad-slot="YOUR_AD_SLOT_ID" data-ad-format="auto" data-full-width-responsive="true"></ins>
             <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
         </div>
@@ -135,9 +109,9 @@
                         <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                     </button>
                     <div id="brandFilterDropdown" class="filter-dropdown absolute z-20 w-64 mt-2 p-3 bg-card border rounded-md shadow-lg hidden">
-                        <input type="text" id="brandSearch" placeholder="Search brands..." class="w-full border-gray-300 rounded-md mb-2 text-sm focus:ring-brand-teal-500 focus:border-brand-teal-500">
+                        <input type="text" id="brandSearch" placeholder="Search brands..." class="w-full border-gray-300 rounded-md mb-2 text-sm focus:ring-primary focus:border-primary">
                         <div id="brandFilterList" class="space-y-1 max-h-60 overflow-y-auto pr-2"></div>
-                        <button id="applyBrandFilter" class="mt-3 w-full bg-brand-teal-600 text-white font-bold py-2 px-4 rounded-md hover:bg-brand-teal-700 transition-colors">Show results</button>
+                        <button id="applyBrandFilter" class="mt-3 w-full bg-primary text-primary-foreground font-bold py-2 px-4 rounded-md hover:bg-primary-hover transition-colors">Show results</button>
                     </div>
                 </div>
                 <div class="relative">
@@ -146,9 +120,9 @@
                         <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                     </button>
                     <div id="colorFilterDropdown" class="filter-dropdown absolute z-20 w-64 mt-2 p-3 bg-card border rounded-md shadow-lg hidden">
-                        <input type="text" id="colorSearch" placeholder="Search colours..." class="w-full border-gray-300 rounded-md mb-2 text-sm focus:ring-brand-teal-500 focus:border-brand-teal-500">
+                        <input type="text" id="colorSearch" placeholder="Search colours..." class="w-full border-gray-300 rounded-md mb-2 text-sm focus:ring-primary focus:border-primary">
                         <div id="colorFilterList" class="space-y-1 max-h-60 overflow-y-auto pr-2"></div>
-                        <button id="applyColorFilter" class="mt-3 w-full bg-brand-teal-600 text-white font-bold py-2 px-4 rounded-md hover:bg-brand-teal-700 transition-colors">Show results</button>
+                        <button id="applyColorFilter" class="mt-3 w-full bg-primary text-primary-foreground font-bold py-2 px-4 rounded-md hover:bg-primary-hover transition-colors">Show results</button>
                     </div>
                 </div>
                 <div class="relative">
@@ -157,25 +131,24 @@
                         <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                     </button>
                     <div id="sizeFilterDropdown" class="filter-dropdown absolute z-20 w-64 mt-2 p-3 bg-card border rounded-md shadow-lg hidden">
-                        <input type="text" id="sizeSearch" placeholder="Search sizes..." class="w-full border-gray-300 rounded-md mb-2 text-sm focus:ring-brand-teal-500 focus:border-brand-teal-500">
+                        <input type="text" id="sizeSearch" placeholder="Search sizes..." class="w-full border-gray-300 rounded-md mb-2 text-sm focus:ring-primary focus:border-primary">
                         <div id="sizeFilterList" class="space-y-1 max-h-60 overflow-y-auto pr-2"></div>
-                        <button id="applySizeFilter" class="mt-3 w-full bg-brand-teal-600 text-white font-bold py-2 px-4 rounded-md hover:bg-brand-teal-700 transition-colors">Show results</button>
+                        <button id="applySizeFilter" class="mt-3 w-full bg-primary text-primary-foreground font-bold py-2 px-4 rounded-md hover:bg-primary-hover transition-colors">Show results</button>
                     </div>
                 </div>
                 <div class="h-6 w-px bg-border mx-2 hidden md:block"></div>
-                <select id="sortOptions" class="text-sm bg-card rounded-full border text-foreground font-semibold py-1.5 pl-4 focus:outline-none focus:ring-2 focus:ring-brand-teal-500 focus:border-brand-teal-500 transition-colors">
+                <select id="sortOptions" class="text-sm bg-card rounded-full border text-foreground font-semibold py-1.5 pl-4 pr-8 appearance-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors">
                     <option value="newest" selected>Sort: Most Recent</option>
                     <option value="time_asc">Sort: Fastest Sale</option>
                     <option value="price_asc">Sort: Price Low-High</option>
                     <option value="price_desc">Sort: Price High-Low</option>
                 </select>
-                <button id="resetFiltersBtn" class="text-sm text-muted-foreground hover:text-brand-teal-600 font-semibold px-2">Reset</button>
+                <button id="resetFiltersBtn" class="text-sm text-muted-foreground hover:text-primary font-semibold px-2">Reset</button>
             </div>
         </div>
 
         <div id="loadingState" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-6">
-            <div class="bg-card border rounded-lg overflow-hidden loading-pulse"
-                v-for="i in 10" :key="i">
+            <div class="bg-card border rounded-lg overflow-hidden loading-pulse" v-for="i in 10" :key="i">
                 <div class="w-full aspect-[3/4] bg-muted"></div>
                 <div class="p-3">
                     <div class="h-4 bg-muted rounded w-3/4 mb-2"></div>
