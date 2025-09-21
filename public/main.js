@@ -14,6 +14,7 @@ class VintedDashboard {
     this.searchQuery = '';
     this.currentFilters = { brand: [], color: [], size: [] };
     this.lastUpdateTime = null;
+    this.filterOptions = { brand: [], color: [], size: [] };
     
     this.init();
   }
@@ -47,14 +48,13 @@ class VintedDashboard {
     return subtitle ? (subtitle.split('·')[0].trim().toUpperCase() || null) : null;
   }
 
-// This is the CORRECT new code
-extractBrand(item) {
-  if (!item.name) {
-    return null;
+  extractBrand(item) {
+    if (!item.name) {
+      return null;
+    }
+    // The brand is assumed to be the first word of the item's name.
+    return item.name.split(' ')[0];
   }
-  // The brand is assumed to be the first word of the item's name.
-  return item.name.split(' ')[0];
-}
 
   mapColorNameToHex(colorName) {
     if (!colorName) return null;
@@ -90,7 +90,7 @@ extractBrand(item) {
     return colorMap[firstColor] || '#CCCCCC';
   }
 
-  // Stats calculation with enhanced metrics
+  // Stats calculation
   updateStats(filteredSales) {
     if (!this.statsDisplay) return;
     
@@ -110,7 +110,6 @@ extractBrand(item) {
       `${Math.floor(avgSaleTime / 60000)}m ${Math.floor((avgSaleTime % 60000) / 1000)}s` : 
       'N/A';
     
-    // Calculate price stats
     const prices = filteredSales
       .map(item => parseFloat(item.price.replace(/[^0-9.-]+/g, "") || "0"))
       .filter(price => price > 0);
@@ -118,7 +117,6 @@ extractBrand(item) {
     const avgPrice = prices.length > 0 ? 
       (prices.reduce((sum, price) => sum + price, 0) / prices.length).toFixed(2) : 0;
     
-    // Find fastest sale
     const fastestSale = Math.min(...validSaleTimes);
     const fastestFormatted = fastestSale !== Infinity ? 
       `${Math.floor(fastestSale / 60000)}m ${Math.floor((fastestSale % 60000) / 1000)}s` : 'N/A';
@@ -129,137 +127,6 @@ extractBrand(item) {
       Fastest: <span class="font-semibold text-green-600">${fastestFormatted}</span> • 
       Avg Price: <span class="font-semibold">£${avgPrice}</span>
     `;
-  }
-
-  // Price range analysis
-  getPriceRangeStats(sales) {
-    const prices = sales
-      .map(item => parseFloat(item.price.replace(/[^0-9.-]+/g, "") || "0"))
-      .filter(price => price > 0)
-      .sort((a, b) => a - b);
-    
-    if (prices.length === 0) return null;
-    
-    return {
-      min: prices[0],
-      max: prices[prices.length - 1],
-      median: prices[Math.floor(prices.length / 2)],
-      q1: prices[Math.floor(prices.length * 0.25)],
-      q3: prices[Math.floor(prices.length * 0.75)]
-    };
-  }
-
-  // Show detailed stats modal
-  showStatsModal() {
-    const modal = document.createElement('div');
-    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
-    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
-    
-    const priceStats = this.getPriceRangeStats(this.allSales);
-    const brands = [...new Set(this.allSales.map(item => this.extractBrand(item)).filter(Boolean))];
-    const topBrands = brands.slice(0, 10);
-    
-    const validSaleTimes = this.allSales
-      .map(item => this.getSaleDurationInMs(item))
-      .filter(time => time !== Infinity);
-    
-    const fastSales = validSaleTimes.filter(time => time < 300000).length; // Under 5 minutes
-    const slowSales = validSaleTimes.filter(time => time > 3600000).length; // Over 1 hour
-    
-    modal.innerHTML = `
-      <div class="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-        <div class="p-6">
-          <div class="flex justify-between items-center mb-4">
-            <h2 class="text-2xl font-bold text-gray-900">Sales Analytics</h2>
-            <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-              </svg>
-            </button>
-          </div>
-          
-          <div class="grid md:grid-cols-2 gap-6">
-            <div class="space-y-4">
-              <h3 class="font-semibold text-lg">Price Analysis</h3>
-              ${priceStats ? `
-                <div class="bg-gray-50 p-4 rounded">
-                  <div class="grid grid-cols-2 gap-2 text-sm">
-                    <div>Min Price: <span class="font-semibold">£${priceStats.min}</span></div>
-                    <div>Max Price: <span class="font-semibold">£${priceStats.max}</span></div>
-                    <div>Median: <span class="font-semibold">£${priceStats.median}</span></div>
-                    <div>Q1: <span class="font-semibold">£${priceStats.q1}</span></div>
-                  </div>
-                </div>
-              ` : '<p class="text-gray-500">No price data available</p>'}
-            </div>
-            
-            <div class="space-y-4">
-              <h3 class="font-semibold text-lg">Sale Speed</h3>
-              <div class="bg-gray-50 p-4 rounded">
-                <div class="space-y-2 text-sm">
-                  <div>Total Sales: <span class="font-semibold">${this.allSales.length}</span></div>
-                  <div>Fast Sales (&lt;5min): <span class="font-semibold text-green-600">${fastSales}</span></div>
-                  <div>Slow Sales (&gt;1hr): <span class="font-semibold text-orange-600">${slowSales}</span></div>
-                  <div>Success Rate: <span class="font-semibold">${((fastSales / validSaleTimes.length) * 100).toFixed(1)}%</span></div>
-                </div>
-              </div>
-            </div>
-            
-            <div class="space-y-4 md:col-span-2">
-              <h3 class="font-semibold text-lg">Top Brands</h3>
-              <div class="bg-gray-50 p-4 rounded">
-                <div class="flex flex-wrap gap-2">
-                  ${topBrands.map(brand => 
-                    `<span class="bg-primary text-white px-3 py-1 rounded-full text-sm">${brand}</span>`
-                  ).join('')}
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div class="mt-6 pt-4 border-t">
-            <p class="text-sm text-gray-500">Last updated: ${this.lastUpdateTime ? this.lastUpdateTime.toLocaleString() : 'Never'}</p>
-          </div>
-        </div>
-      </div>
-    `;
-    
-    document.body.appendChild(modal);
-  }
-
-  // Export data functionality
-  exportData(format = 'json') {
-    const dataStr = format === 'csv' ? this.convertToCSV(this.allSales) : JSON.stringify(this.allSales, null, 2);
-    const dataBlob = new Blob([dataStr], { type: format === 'csv' ? 'text/csv' : 'application/json' });
-    
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(dataBlob);
-    link.download = `vinted-sales-${new Date().toISOString().split('T')[0]}.${format}`;
-    link.click();
-  }
-
-  convertToCSV(data) {
-    if (!data.length) return '';
-    
-    const headers = ['name', 'price', 'color_name', 'size', 'brand', 'sale_speed', 'sold_at', 'link'];
-    const rows = data.map(item => {
-      const size = this.extractSize(item.subtitle);
-      const brand = this.extractBrand(item);
-      const saleSpeed = this.getSaleSpeed(item);
-      
-      return [
-        item.name || '',
-        item.price || '',
-        item.color_name || '',
-        size || '',
-        brand || '',
-        saleSpeed || '',
-        item.soldAt || '',
-        item.link || ''
-      ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(',');
-    });
-    
-    return [headers.join(','), ...rows].join('\n');
   }
 
   // Rendering Logic
@@ -394,42 +261,58 @@ extractBrand(item) {
 
   // Filter Management
   populateFilters() {
-    const brands = new Set();
-    const colors = new Set();
+    const brandCounts = new Map();
+    const colorCounts = new Map();
     const sizes = new Set();
 
     this.allSales.forEach(item => {
       const brand = this.extractBrand(item);
-      if (brand) brands.add(brand);
+      if (brand) brandCounts.set(brand, (brandCounts.get(brand) || 0) + 1);
       
       const size = this.extractSize(item.subtitle);
       if (size) sizes.add(size);
       
       const color = item.color_name ? item.color_name.split(',')[0].trim() : null;
-      if (color) colors.add(color);
+      if (color) colorCounts.set(color, (colorCounts.get(color) || 0) + 1);
     });
 
-    // Update filter dropdowns
-    this.updateFilterDropdown('brand', [...brands].sort());
-    this.updateFilterDropdown('color', [...colors].sort());
-    this.updateFilterDropdown('size', this.sortSizes([...sizes]));
+    // Sort brand and color by most common
+    this.filterOptions.brand = [...brandCounts.entries()]
+      .sort(([, countA], [, countB]) => countB - countA)
+      .map(([value, count]) => ({ value, count }));
+
+    this.filterOptions.color = [...colorCounts.entries()]
+      .sort(([, countA], [, countB]) => countB - countA)
+      .map(([value, count]) => ({ value, count }));
+
+    // Sort sizes using the existing logic
+    this.filterOptions.size = this.sortSizes([...sizes]);
+
+    // Update dropdowns with the full, sorted lists
+    this.updateFilterDropdown('brand', this.filterOptions.brand);
+    this.updateFilterDropdown('color', this.filterOptions.color);
+    this.updateFilterDropdown('size', this.filterOptions.size);
   }
 
   updateFilterDropdown(filterType, options) {
     const list = document.getElementById(`${filterType}FilterList`);
     if (!list) return;
 
-    const createCheckbox = (name, value, isChecked) => `
-      <label class="flex items-center w-full p-1.5 rounded hover:bg-gray-100 cursor-pointer">
-        <input type="checkbox" name="${name}" value="${value}" ${isChecked ? 'checked' : ''} 
-               class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary">
-        <span class="ml-2 text-sm text-gray-800 truncate">${value}</span>
-      </label>
-    `;
+    const createCheckbox = (name, option) => {
+      const value = typeof option === 'object' ? option.value : option;
+      const label = typeof option === 'object' ? `${option.value} (${option.count})` : option;
+      const isChecked = this.currentFilters[name].includes(value);
+      
+      return `
+        <label class="flex items-center w-full p-1.5 rounded hover:bg-gray-100 cursor-pointer">
+          <input type="checkbox" name="${name}" value="${value}" ${isChecked ? 'checked' : ''}
+                 class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary">
+          <span class="ml-2 text-sm text-gray-800 truncate">${label}</span>
+        </label>
+      `;
+    };
 
-    list.innerHTML = options.map(option => 
-      createCheckbox(filterType, option, this.currentFilters[filterType].includes(option))
-    ).join('');
+    list.innerHTML = options.map(option => createCheckbox(filterType, option)).join('');
   }
 
   sortSizes(sizes) {
@@ -459,15 +342,11 @@ extractBrand(item) {
   // API and Data Management
   async fetchSales() {
     try {
-      console.log('Fetching sales data from /api/sales...');
       const res = await fetch("/api/sales");
-      
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`);
       }
-      
       const salesData = await res.json();
-      console.log(`Loaded ${salesData.length} sales from sales.json`);
       
       this.allSales = salesData;
       this.lastUpdateTime = new Date();
@@ -485,7 +364,6 @@ extractBrand(item) {
 
   // Event Listeners
   setupEventListeners() {
-    // Search
     if (this.searchBar) {
       this.searchBar.addEventListener('input', (e) => {
         this.searchQuery = e.target.value;
@@ -493,7 +371,6 @@ extractBrand(item) {
       });
     }
 
-    // Sort
     if (this.sortOptions) {
       this.sortOptions.addEventListener('change', (e) => {
         this.currentSort = e.target.value;
@@ -501,46 +378,30 @@ extractBrand(item) {
       });
     }
 
-    // Export dropdown
-    const exportBtn = document.getElementById('exportBtn');
-    const exportDropdown = document.getElementById('exportDropdown');
-    if (exportBtn && exportDropdown) {
-      exportBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        exportDropdown.classList.toggle('hidden');
-      });
-    }
-
-    // Reset filters
     if (this.resetFiltersBtn) {
       this.resetFiltersBtn.addEventListener('click', () => {
-        this.resetAllFilters();
+        // A more robust reset implementation could be added here
+        window.location.reload();
       });
     }
 
-    // Filter dropdowns
     ['brand', 'color', 'size'].forEach(filterType => {
       this.setupFilter(filterType);
     });
 
-    // Close dropdowns on outside click
     window.addEventListener('click', () => {
       document.querySelectorAll('.filter-dropdown').forEach(d => d.classList.add('hidden'));
-      const exportDropdown = document.getElementById('exportDropdown');
-      if (exportDropdown) exportDropdown.classList.add('hidden');
     });
     
     document.querySelectorAll('.filter-dropdown').forEach(d => {
       d.addEventListener('click', e => e.stopPropagation());
     });
 
-    // Category links (for future implementation)
     document.querySelectorAll('.category-link').forEach(link => {
       link.addEventListener('click', (e) => {
         e.preventDefault();
         const category = e.target.dataset.category;
         console.log(`Category filter clicked: ${category} (not implemented yet)`);
-        // TODO: Implement category filtering when multiple categories are tracked
       });
     });
   }
@@ -551,8 +412,9 @@ extractBrand(item) {
     const list = document.getElementById(`${filterType}FilterList`);
     const applyBtn = document.getElementById(`apply${filterType.charAt(0).toUpperCase() + filterType.slice(1)}Filter`);
     const btnText = document.getElementById(`${filterType}FilterBtnText`);
+    const searchInput = document.getElementById(`${filterType}Search`);
 
-    if (!btn || !dropdown || !list || !applyBtn || !btnText) {
+    if (!btn || !dropdown || !list || !applyBtn || !btnText || !searchInput) {
       console.warn(`Filter elements missing for ${filterType}`);
       return;
     }
@@ -563,6 +425,20 @@ extractBrand(item) {
         if (d !== dropdown) d.classList.add('hidden');
       });
       dropdown.classList.toggle('hidden');
+      searchInput.value = '';
+      this.updateFilterDropdown(filterType, this.filterOptions[filterType]);
+      if (!dropdown.classList.contains('hidden')) {
+        searchInput.focus();
+      }
+    });
+
+    searchInput.addEventListener('input', () => {
+      const term = searchInput.value.toLowerCase();
+      const filtered = this.filterOptions[filterType].filter(option => {
+        const value = typeof option === 'object' ? option.value : option;
+        return value.toLowerCase().includes(term);
+      });
+      this.updateFilterDropdown(filterType, filtered);
     });
 
     applyBtn.addEventListener('click', () => {
@@ -580,13 +456,11 @@ extractBrand(item) {
 
   // Initialize
   init() {
-    console.log('Initializing VintedTrends Dashboard...');
     this.setupEventListeners();
     this.fetchSales();
     
-    // Auto-refresh every 30 seconds to pick up new sales
+    // Auto-refresh every 30 seconds
     setInterval(() => {
-      console.log('Auto-refreshing sales data...');
       this.fetchSales();
     }, 30000);
   }
@@ -594,6 +468,5 @@ extractBrand(item) {
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('DOM loaded, starting VintedTrends Dashboard...');
   window.vintedDashboard = new VintedDashboard();
 });
