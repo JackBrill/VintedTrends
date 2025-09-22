@@ -127,10 +127,10 @@ app.listen(PORT, async () => {
 
   if (newMensItems >= 20) {
       console.log(`Found ${newMensItems} new Men's items. Starting mens.js...`);
-      scraperScript = 'mens.js';
+      scraperScript = 'modules/mens.js';
   } else {
       console.log(`Found only ${newMensItems} new Men's items. Starting designer.js instead...`);
-      scraperScript = 'designer.js';
+      scraperScript = 'modules/designer.js';
   }
 
   const scraper = spawn('node', [scraperScript], {
