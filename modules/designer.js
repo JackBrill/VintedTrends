@@ -3,7 +3,7 @@ import { chromium } from "playwright";
 import fs from "fs";
 import path from "path";
 import fetch from "node-fetch";
-import { PROXIES, DISCORD_WEBHOOK_URL, DESIGNER_URL } from "./config.js";
+import { PROXIES, DISCORD_WEBHOOK_URL, DESIGNER_URL } from "../config.js";
 
 // Settings
 const BATCH_SIZE = 60; // number of items to track
