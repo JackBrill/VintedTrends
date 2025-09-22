@@ -13,7 +13,7 @@ const CONCURRENT_CHECKS = 20; // Number of items to check at once
 const VERBOSE_LOGGING = false; 
 
 // Path to sales data -- UPDATED THIS LINE
-const SALES_FILE = path.join(process.cwd(), "designer.json");
+const SALES_FILE = path.join(process.cwd(), "mens.json");
 
 // Load sales data
 function loadSales() {
