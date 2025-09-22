@@ -1,4 +1,4 @@
-// Enhanced main.js - With smart filter switching
+// Enhanced main.js - With Chart.js integration
 class VintedDashboard {
   constructor() {
     this.salesContainer = document.getElementById("salesContainer");
@@ -7,10 +7,13 @@ class VintedDashboard {
     this.resetFiltersBtn = document.getElementById("resetFiltersBtn");
     this.statsDisplay = document.getElementById("statsDisplay");
     this.activeFiltersContainer = document.getElementById('activeFiltersContainer');
-    
     this.sortBtn = document.getElementById('sortBtn');
     this.sortBtnText = document.getElementById('sortBtnText');
     this.sortDropdown = document.getElementById('sortDropdown');
+
+    // NEW: Chart elements
+    this.toggleChartsBtn = document.getElementById('toggleChartsBtn');
+    this.chartsSection = document.getElementById('chartsSection');
 
     // State
     this.allSales = [];
@@ -19,7 +22,12 @@ class VintedDashboard {
     this.currentFilters = { brand: [], color: [], size: [] };
     this.lastUpdateTime = null;
     this.filterOptions = { brand: [], color: [], size: [] };
-    this.activeDropdown = null; // Track the currently open filter dropdown
+    this.activeDropdown = null;
+    
+    // NEW: Chart instances
+    this.brandChartInstance = null;
+    this.categoryChartInstance = null;
+    this.colorChartInstance = null;
     
     this.init();
   }
@@ -47,15 +55,14 @@ class VintedDashboard {
     return subtitle ? (subtitle.split('·')[0].trim().toUpperCase() || null) : null;
   }
 
-extractBrand(item) {
-    // Since the "name" field is the brand, we just return it.
+  extractBrand(item) {
     return item.name || null;
-}
+  }
 
   mapColorNameToHex(colorName) {
     if (!colorName) return null;
     const firstColor = colorName.split(',')[0].trim().toLowerCase();
-    const colorMap = {'black': '#000000', 'white': '#FFFFFF', 'grey': '#808080','gray': '#808080', 'silver': '#C0C0C0', 'red': '#FF0000','maroon': '#800000', 'orange': '#FFA500', 'yellow': '#FFFF00','olive': '#808000', 'lime': '#00FF00', 'green': '#008000','aqua': '#00FFFF', 'cyan': '#00FFFF', 'teal': '#008080','blue': '#0000FF', 'navy': '#000080', 'fuchsia': '#FF00FF','magenta': '#FF00FF', 'purple': '#800080', 'pink': '#FFC0CB','brown': '#A52A2A', 'beige': '#F5F5DC', 'khaki': '#F0E68C','gold': '#FFD700', 'cream': '#FFFDD0', 'burgundy': '#800020','mustard': '#FFDB58', 'turquoise': '#40E0D0', 'indigo': '#4B0082','violet': '#EE82EE', 'plum': '#DDA0DD', 'orchid': '#DA70D6','salmon': '#FA8072', 'coral': '#FF7F50', 'chocolate': '#D2691E','tan': '#D2B48C', 'ivory': '#FFFFF0', 'honeydew': '#F0FFF0','azure': '#F0FFFF', 'lavender': '#E6E6FA', 'rose': '#FFE4E1','lilac': '#C8A2C8', 'mint': '#98FF98', 'peach': '#FFDAB9','sky blue': '#87CEEB', 'royal blue': '#4169E1', 'cobalt': '#0047AB','denim': '#1560BD', 'emerald': '#50C878', 'mint green': '#98FF98','lime green': '#32CD32', 'forest green': '#228B22', 'olive green': '#6B8E23','mustard yellow': '#FFDB58', 'lemon': '#FFFACD', 'coral pink': '#F88379','hot pink': '#FF69B4', 'baby pink': '#F4C2C2', 'ruby': '#E0115F','scarlet': '#FF2400', 'wine': '#722F37', 'terracotta': '#E2725B','bronze': '#CD7F32', 'light blue': '#ADD8E6', 'dark green': '#006400','light grey': '#D3D3D3', 'dark blue': '#00008B', 'light green': '#90EE90','dark grey': '#A9A9A9', 'multicolour': '#CCCCCC', 'check': '#A9A9A9','floral': '#A9A9A9', 'animal print': '#A9A9A9', 'striped': '#A9A9A9','camouflage': '#A9A9A9', 'geometric': '#A9A9A9', 'abstract': '#A9A9A9'};
+    const colorMap = {'black':'#000000', 'white':'#FFFFFF', 'grey':'#808080','gray':'#808080', 'silver':'#C0C0C0', 'red':'#FF0000','maroon':'#800000', 'orange':'#FFA500', 'yellow':'#FFFF00','olive':'#808000', 'lime':'#00FF00', 'green':'#008000','aqua':'#00FFFF', 'cyan':'#00FFFF', 'teal':'#008080','blue':'#0000FF', 'navy':'#000080', 'fuchsia':'#FF00FF','magenta':'#FF00FF', 'purple':'#800080', 'pink':'#FFC0CB','brown':'#A52A2A', 'beige':'#F5F5DC', 'khaki':'#F0E68C','gold':'#FFD700', 'cream':'#FFFDD0', 'burgundy':'#800020','mustard':'#FFDB58', 'turquoise':'#40E0D0', 'indigo':'#4B0082','violet':'#EE82EE', 'plum':'#DDA0DD', 'orchid':'#DA70D6','salmon':'#FA8072', 'coral':'#FF7F50', 'chocolate':'#D2691E','tan':'#D2B48C', 'ivory':'#FFFFF0', 'honeydew':'#F0FFF0','azure':'#F0FFFF', 'lavender':'#E6E6FA', 'rose':'#FFE4E1','lilac':'#C8A2C8', 'mint':'#98FF98', 'peach':'#FFDAB9','sky blue':'#87CEEB', 'royal blue':'#4169E1', 'cobalt':'#0047AB','denim':'#1560BD', 'emerald':'#50C878', 'mint green':'#98FF98','lime green':'#32CD32', 'forest green':'#228B22', 'olive green':'#6B8E23','mustard yellow':'#FFDB58', 'lemon':'#FFFACD', 'coral pink':'#F88379','hot pink':'#FF69B4', 'baby pink':'#F4C2C2', 'ruby':'#E0115F','scarlet':'#FF2400', 'wine':'#722F37', 'terracotta':'#E2725B','bronze':'#CD7F32', 'light blue':'#ADD8E6', 'dark green':'#006400','light grey':'#D3D3D3', 'dark blue':'#00008B', 'light green':'#90EE90','dark grey':'#A9A9A9', 'multicolour':'#CCCCCC', 'check':'#A9A9A9','floral':'#A9A9A9', 'animal print':'#A9A9A9', 'striped':'#A9A9A9','camouflage':'#A9A9A9', 'geometric':'#A9A9A9', 'abstract':'#A9A9A9'};
     return colorMap[firstColor] || '#CCCCCC';
   }
 
@@ -89,6 +96,11 @@ extractBrand(item) {
     this.populateFilters();
     const sortedSales = this.sortSales(filteredSales);
     this.updateStats(sortedSales);
+    
+    // NEW: Refresh charts if they are visible
+    if (!this.chartsSection.classList.contains('hidden')) {
+        this.updateCharts();
+    }
 
     if (sortedSales.length === 0) {
         this.salesContainer.innerHTML = `<p class="col-span-full text-center text-muted-foreground py-12">No items match your filters.</p>`;
@@ -104,6 +116,70 @@ extractBrand(item) {
         const sizeAndColorHTML = size || colorCircleHTML ? `<div class="flex items-center gap-1.5 flex-shrink-0">${size ? `<span class="text-xs font-bold text-gray-800 bg-gray-100 px-2 py-0.5 rounded">${size}</span>` : ''}${colorCircleHTML}</div>` : '';
         return `<div class="bg-card text-card-foreground border rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300 flex flex-col"><a href="${item.link}" target="_blank" rel="noopener noreferrer" class="block relative group"><img src="${item.image || 'https://placehold.co/400x600/f1f5f9/94a3b8?text=Sold'}" alt="${item.name || 'Sold item'}" class="w-full aspect-[3/4] object-cover group-hover:opacity-90 transition-opacity" loading="lazy" onerror="this.src='https://placehold.co/400x600/f1f5f9/94a3b8?text=No+Image'" /></a><div class="p-3 flex flex-col flex-grow"><div class="flex justify-between items-start gap-2 mb-2"><p class="font-semibold text-sm line-clamp-2 leading-tight">${item.name || 'Untitled Item'}</p>${sizeAndColorHTML}</div><div class="flex justify-between items-center text-xs text-muted-foreground mb-2"><span class="truncate">${saleSpeed ? `Sold in: ${saleSpeed}` : ''}</span><span class="flex-shrink-0 ml-2">${soldTimeAgo}</span></div><div class="flex-grow"></div><p class="text-lg font-bold text-primary mb-3">${item.price || ''}</p><a href="${item.link}" target="_blank" rel="noopener noreferrer" class="block text-center w-full bg-transparent border border-primary text-primary font-bold py-2 px-4 rounded-md hover:bg-primary hover:text-primary-foreground transition-all duration-200 text-sm">View on Vinted</a></div></div>`;
     }).join("");
+  }
+
+  // NEW: Function to create and update the pie charts
+  updateCharts() {
+    const filteredSales = this.getFilteredSales();
+    if (filteredSales.length === 0) return;
+
+    const processChartData = (data, keyExtractor) => {
+        const counts = data.reduce((acc, item) => {
+            const key = keyExtractor(item);
+            if (key) {
+                acc[key] = (acc[key] || 0) + 1;
+            }
+            return acc;
+        }, {});
+
+        const sorted = Object.entries(counts).sort(([, a], [, b]) => b - a);
+        const top5 = sorted.slice(0, 5);
+        const otherCount = sorted.slice(5).reduce((sum, [, count]) => sum + count, 0);
+
+        const labels = top5.map(([label]) => label);
+        const values = top5.map(([, value]) => value);
+
+        if (otherCount > 0) {
+            labels.push('Other');
+            values.push(otherCount);
+        }
+        return { labels, values };
+    };
+    
+    const brandData = processChartData(filteredSales, item => this.extractBrand(item));
+    const categoryData = processChartData(filteredSales, item => item.category || 'N/A');
+    const colorData = processChartData(filteredSales, item => item.color_name ? item.color_name.split(',')[0].trim() : 'N/A');
+
+    const createPieChart = (chartId, chartInstance, chartData, label) => {
+        const ctx = document.getElementById(chartId).getContext('2d');
+        if (chartInstance) {
+            chartInstance.destroy();
+        }
+        return new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: chartData.labels,
+                datasets: [{
+                    label: label,
+                    data: chartData.values,
+                    backgroundColor: ['#007782', '#00a896', '#02c39a', '#f0f3bd', '#e9c46a', '#f4a261', '#e76f51', '#d8315b', '#4a4e69', '#22223b'],
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                    }
+                }
+            }
+        });
+    };
+
+    this.brandChartInstance = createPieChart('brandChart', this.brandChartInstance, brandData, 'Brands');
+    this.categoryChartInstance = createPieChart('categoryChart', this.categoryChartInstance, categoryData, 'Categories');
+    this.colorChartInstance = createPieChart('colorChart', this.colorChartInstance, colorData, 'Colors');
   }
 
   renderActiveFilters() {
@@ -137,41 +213,24 @@ extractBrand(item) {
     const itemsForBrandFilter = this.getFilteredSales('brand');
     const itemsForColorFilter = this.getFilteredSales('color');
     const itemsForSizeFilter = this.getFilteredSales('size');
-    
     const brandCounts = new Map();
     itemsForBrandFilter.forEach(item => { const brand = this.extractBrand(item); if (brand) brandCounts.set(brand, (brandCounts.get(brand) || 0) + 1); });
-    
     const colorCounts = new Map();
     itemsForColorFilter.forEach(item => { const color = item.color_name ? item.color_name.split(',')[0].trim() : null; if (color) colorCounts.set(color, (colorCounts.get(color) || 0) + 1); });
-    
     const sizeCounts = new Map();
     itemsForSizeFilter.forEach(item => { const size = this.extractSize(item.subtitle); if (size) sizeCounts.set(size, (sizeCounts.get(size) || 0) + 1); });
-
-    // NEW: Updated sorting logic for Brand and Colour
     const sortWithAlphaTiebreaker = ([valueA, countA], [valueB, countB]) => {
-        // Primary sort: by count, descending
-        if (countB !== countA) {
-            return countB - countA;
-        }
-        // Secondary sort: by name, alphabetically (A-Z)
+        if (countB !== countA) return countB - countA;
         return valueA.localeCompare(valueB);
     };
-
-    this.filterOptions.brand = [...brandCounts.entries()]
-      .sort(sortWithAlphaTiebreaker)
-      .map(([value, count]) => ({ value, count }));
-
-    this.filterOptions.color = [...colorCounts.entries()]
-      .sort(sortWithAlphaTiebreaker)
-      .map(([value, count]) => ({ value, count }));
-
-    // Size filter remains sorted by size order
+    this.filterOptions.brand = [...brandCounts.entries()].sort(sortWithAlphaTiebreaker).map(([value, count]) => ({ value, count }));
+    this.filterOptions.color = [...colorCounts.entries()].sort(sortWithAlphaTiebreaker).map(([value, count]) => ({ value, count }));
     this.filterOptions.size = this.sortSizes([...sizeCounts.entries()].map(([value, count]) => ({ value, count })));
-    
     this.updateFilterDropdown('brand', this.filterOptions.brand);
     this.updateFilterDropdown('color', this.filterOptions.color);
     this.updateFilterDropdown('size', this.filterOptions.size);
   }
+
   updateFilterDropdown(filterType, options) {
     const list = document.getElementById(`${filterType}FilterList`);
     if (!list) return;
@@ -212,21 +271,13 @@ extractBrand(item) {
   }
 
   async fetchSales() {
-    let apiUrl = "/api/sales"; // Default for homepage (all data)
+    let apiUrl = "/api/sales";
     const path = window.location.pathname;
-
-    // Checks the browser's URL to decide which category to request
-    if (path.startsWith('/mens')) {
-        apiUrl = "/api/sales?category=mens";
-    } else if (path.startsWith('/womens')) {
-        apiUrl = "/api/sales?category=womens";
-    } else if (path.startsWith('/designer')) {
-        apiUrl = "/api/sales?category=designer";
-    } else if (path.startsWith('/shoes')) {
-        apiUrl = "/api/sales?category=shoes";
-    } else if (path.startsWith('/electronics')) {
-        apiUrl = "/api/sales?category=electronics";
-    }
+    if (path.startsWith('/mens')) apiUrl = "/api/sales?category=mens";
+    else if (path.startsWith('/womens')) apiUrl = "/api/sales?category=womens";
+    else if (path.startsWith('/designer')) apiUrl = "/api/sales?category=designer";
+    else if (path.startsWith('/shoes')) apiUrl = "/api/sales?category=shoes";
+    else if (path.startsWith('/electronics')) apiUrl = "/api/sales?category=electronics";
 
     try {
       const res = await fetch(apiUrl);
@@ -262,7 +313,14 @@ extractBrand(item) {
     this.resetFiltersBtn.addEventListener('click', () => { window.location.reload(); });
     ['brand', 'color', 'size'].forEach(filterType => this.setupFilter(filterType));
     
-    // Sort Dropdown
+    // NEW: Event listener for chart toggle button
+    this.toggleChartsBtn.addEventListener('click', () => {
+        this.chartsSection.classList.toggle('hidden');
+        if (!this.chartsSection.classList.contains('hidden')) {
+            this.updateCharts(); // Generate charts when section is opened
+        }
+    });
+
     if (this.sortBtn) {
         const sortOptionsMap = { 'newest': 'Sort: Most Recent', 'time_asc': 'Sort: Fastest Sale', 'price_asc': 'Sort: Price Low-High', 'price_desc': 'Sort: Price High-Low' };
         this.sortBtn.addEventListener('click', e => { e.stopPropagation(); this.activeDropdown = null; document.querySelectorAll('.filter-dropdown').forEach(d => d.classList.add('hidden')); this.sortDropdown.classList.toggle('hidden'); });
@@ -278,7 +336,6 @@ extractBrand(item) {
         });
     }
 
-    // Event listener for removing active filter tags
     this.activeFiltersContainer.addEventListener('click', e => {
         const removeBtn = e.target.closest('.remove-filter-btn');
         if (removeBtn) {
@@ -289,7 +346,6 @@ extractBrand(item) {
         }
     });
 
-    // Global click listener to close dropdowns AND APPLY FILTERS
     window.addEventListener('click', () => {
       if (this.activeDropdown) {
           this.applyFilter(this.activeDropdown);
