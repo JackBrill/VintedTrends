@@ -11,7 +11,8 @@ import { PROXIES, MENS_URL, DESIGNER_URL, WOMENS_URL, SHOES_URL, ELECTRONICS_URL
 
 const app = express();
 const PORT = 3000;
-const ORCHESTRATION_INTERVAL = 15 * 60 * 1000;
+const ORCHESTRATION_INTERVAL = 15 * 60 * 1000; // 15 minutes
+const RETRY_DELAY = 5 * 60 * 1000; // 5 minutes
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,7 +20,7 @@ const __dirname = path.dirname(__filename);
 app.use(cors());
 app.use(express.static("public"));
 
-// ... (all your helper functions like loadTrackedHistory, checkNewItemCount, etc. remain here) ...
+// ... (all your helper functions like loadTrackedHistory, checkNewItemCount, etc. remain unchanged) ...
 const TRACKED_HISTORY_FILE = path.join(process.cwd(), "tracked_history.json");
 
 function loadTrackedHistory() {
@@ -69,7 +70,7 @@ async function checkNewItemCount(categoryUrl) {
 }
 
 
-// ... (all your app.get routes remain here) ...
+// ... (all your app.get routes remain unchanged) ...
 app.get("/api/sales", (req, res) => {
   const { category } = req.query; 
   let sales = [];
@@ -107,6 +108,7 @@ allRoutes.forEach(route => {
 });
 
 
+// <<< CHANGED: The orchestration logic is now self-scheduling
 async function runOrchestration() {
     console.log("==================================================");
     console.log(`Starting new orchestration cycle at ${new Date().toLocaleTimeString()}`);
@@ -119,39 +121,44 @@ async function runOrchestration() {
         { name: "Electronics", url: ELECTRONICS_URL, script: 'modules/electronics.js' }
     ];
 
-    let chosenScraper = null; // Default to null
+    let scraperLaunched = false;
 
     for (const scraper of scraperSequence) {
         console.log(`Orchestrator: Checking for new items in ${scraper.name} category...`);
         const newItemCount = await checkNewItemCount(scraper.url);
         
-        // <<< CHANGED: Use your new threshold of 10
         if (newItemCount >= 10) {
             console.log(`Found ${newItemCount} new ${scraper.name} items. Starting ${scraper.script}...`);
-            chosenScraper = scraper.script;
-            break;
+            
+            const scraperProcess = spawn('node', [scraper.script], {
+              detached: true,
+              stdio: 'inherit'
+            });
+            scraperProcess.unref();
+            console.log(`🚀 Vinted scraper (${scraper.script}) process has been started.`);
+            
+            scraperLaunched = true;
+            break; 
         } else {
             console.log(`Found only ${newItemCount} new ${scraper.name} items. Checking next category...`);
         }
     }
     
-    // <<< NEW: If no scraper was chosen, run the history scanner as a fallback
-    if (!chosenScraper) {
-        console.log("No category had 10+ new items. Launching history scanner as a fallback.");
-        chosenScraper = 'modules/history_scanner.js';
+    // <<< CHANGED: Decide the delay for the next cycle
+    if (scraperLaunched) {
+        // A scraper was launched, so wait for the normal, longer interval
+        console.log(`Next orchestration cycle will start in ${ORCHESTRATION_INTERVAL / 60000} minutes.`);
+        setTimeout(runOrchestration, ORCHESTRATION_INTERVAL);
+    } else {
+        // No scraper was launched, so schedule a faster retry
+        console.log(`No category had enough new items. Retrying the whole sequence in ${RETRY_DELAY / 60000} minutes...`);
+        setTimeout(runOrchestration, RETRY_DELAY);
     }
-
-    const scraperProcess = spawn('node', [chosenScraper], {
-      detached: true,
-      stdio: 'inherit'
-    });
-
-    scraperProcess.unref();
-    console.log(`🚀 Vinted scraper (${chosenScraper}) process has been started.`);
 }
 
 app.listen(PORT, () => {
   console.log(`✅ Dashboard server running on port ${PORT}`);
+  
+  // <<< CHANGED: Run the orchestration once on startup, it will then schedule itself
   runOrchestration();
-  setInterval(runOrchestration, ORCHESTRATION_INTERVAL);
 });
