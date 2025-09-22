@@ -200,7 +200,7 @@ function getRandomProxy() {
                   viewport: { width: 1280, height: 800 },
               });
               itemPage = await contextCheck.newPage();
-              const blocklist = ['image', 'stylesheet', 'font', 'media'];
+              const blocklist = ['stylesheet', 'font', 'media'];
               await itemPage.route('**/*', (route) => {
                   return blocklist.includes(route.request().resourceType()) ? route.abort() : route.continue();
               });
