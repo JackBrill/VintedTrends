@@ -58,3 +58,5 @@ export const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/14189084792
 export const MENS_URL = "https://www.vinted.co.uk/catalog?search_id=26770150435&catalog[]=2050&order=newest_first"
 export const WOMENS_URL = "https://www.vinted.co.uk/catalog?search_id=26798173926&catalog[]=4&order=newest_first"
 export const DESIGNER_URL = "https://www.vinted.co.uk/catalog?currency=GBP&search_id=26072466816&page=1&time=1758561048&catalog[]=2993&order=newest_first"
+export const SHOES_URL = "https://www.vinted.co.uk/catalog?search_id=26081283991&catalog[]=1231"
+export const ELECTRONICS_URL = "https://www.vinted.co.uk/catalog?search_id=26798969033&order=newest_first&catalog[]=2994"
