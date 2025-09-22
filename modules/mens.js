@@ -5,6 +5,13 @@ import path from "path";
 import fetch from "node-fetch";
 import { PROXIES, DISCORD_WEBHOOK_URL, MENS_URL } from "../config.js";
 
+// <<< NEW: Define the script name for logging
+const SCRIPT_NAME = 'mens.js';
+
+// <<< NEW: Create a custom logging function
+function log(message, ...args) {
+    console.log(`[${SCRIPT_NAME}] ${message}`, ...args);
+}
 // Settings
 const BATCH_SIZE = 60; // number of items to track
 const CHECK_INTERVAL = 60 * 1000; // 60 seconds
