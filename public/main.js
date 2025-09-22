@@ -220,10 +220,12 @@ extractBrand(item) {
         apiUrl = "/api/sales?category=mens";
     } else if (path.startsWith('/womens')) {
         apiUrl = "/api/sales?category=womens";
-    } else if (path.startsWith('/shoes')) {
-        apiUrl = "/api/sales?category=shoes";
     } else if (path.startsWith('/designer')) {
         apiUrl = "/api/sales?category=designer";
+    } else if (path.startsWith('/shoes')) {
+        apiUrl = "/api/sales?category=shoes";
+    } else if (path.startsWith('/electronics')) {
+        apiUrl = "/api/sales?category=electronics";
     }
 
     try {
