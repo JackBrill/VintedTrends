@@ -36,6 +36,23 @@
         @keyframes pulse {
             50% { opacity: .6; }
         }
+
+        /* ADD THESE STYLES */
+    #chartsSection {
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+        padding-top: 0;
+        padding-bottom: 0;
+        transition: max-height 0.5s ease-in-out, opacity 0.5s ease-in-out, padding 0.5s ease-in-out;
+    }
+
+    #chartsSection.charts-visible {
+        max-height: 500px; /* A height large enough to fit the content */
+        opacity: 1;
+        padding-top: 1.5rem;  /* 24px */
+        padding-bottom: 1.5rem; /* 24px */
+    }
     </style>
 
     <script>
