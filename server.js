@@ -6,9 +6,9 @@ import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from 'url';
-// <<< NEW ADDITION: Imports for the orchestration logic
 import { chromium } from "playwright";
-import { PROXIES, MENS_URL } from "./config.js";
+// <<< CHANGED: Import all necessary URLs for the new sequence
+import { PROXIES, MENS_URL, DESIGNER_URL, WOMENS_URL, SHOES_URL, ELECTRONICS_URL } from "./config.js";
 
 const app = express();
 const PORT = 3000;
@@ -17,11 +17,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 app.use(cors());
-
-// Serve static files like main.js from the 'public' directory
 app.use(express.static("public"));
 
-// <<< NEW ADDITION: Helper functions to check for new items
 const TRACKED_HISTORY_FILE = path.join(process.cwd(), "tracked_history.json");
 
 function loadTrackedHistory() {
@@ -69,11 +66,9 @@ async function checkNewItemCount(categoryUrl) {
         return 0;
     }
 }
-// <<< END OF NEW ADDITION
 
-// API endpoint that now combines files or filters by category
 app.get("/api/sales", (req, res) => {
-  const { category } = req.query; // e.g., ?category=mens
+  const { category } = req.query; 
   let sales = [];
 
   const readSalesFile = (fileName) => {
@@ -91,10 +86,8 @@ app.get("/api/sales", (req, res) => {
   };
 
   if (category) {
-    // If a specific category is requested, read only that file
     sales = readSalesFile(`${category}.json`);
   } else {
-    // For the homepage, read all possible files and combine them
     const allFiles = ['mens.json', 'womens.json', 'designer.json', 'shoes.json', 'electronics.json'];
     let combinedSales = [];
     allFiles.forEach(file => {
@@ -107,7 +100,6 @@ app.get("/api/sales", (req, res) => {
   res.json(sales);
 });
 
-// All routes serve the same main dashboard file
 const allRoutes = ['/', '/mens', '/womens', '/designer', '/shoes', '/electronics',];
 allRoutes.forEach(route => {
     app.get(route, (req, res) => {
@@ -115,29 +107,44 @@ allRoutes.forEach(route => {
     });
 });
 
-// Start the Express server
-// <<< NEW ADDITION: Changed to an async function to allow 'await'
 app.listen(PORT, async () => {
   console.log(`✅ Dashboard server running on port ${PORT}`);
   
-  // <<< NEW ADDITION: Orchestration logic
-  console.log("Orchestrator: Checking for new items in Men's category...");
-  const newMensItems = await checkNewItemCount(MENS_URL);
-  let scraperScript;
+  // <<< NEW: Define the sequence of scrapers to check
+  const scraperSequence = [
+      { name: "Men's", url: MENS_URL, script: 'modules/mens.js' },
+      { name: "Designer", url: DESIGNER_URL, script: 'modules/designer.js' },
+      { name: "Women's", url: WOMENS_URL, script: 'modules/womens.js' },
+      { name: "Shoes", url: SHOES_URL, script: 'modules/shoes.js' },
+      { name: "Electronics", url: ELECTRONICS_URL, script: 'modules/electronics.js' }
+  ];
 
-  if (newMensItems >= 20) {
-      console.log(`Found ${newMensItems} new Men's items. Starting mens.js...`);
-      scraperScript = 'modules/mens.js';
-  } else {
-      console.log(`Found only ${newMensItems} new Men's items. Starting designer.js instead...`);
-      scraperScript = 'modules/designer.js';
+  let chosenScraper = scraperSequence[0].script; // Default to the first scraper
+
+  // <<< NEW: Loop through the sequence to find the first category with enough new items
+  for (const scraper of scraperSequence) {
+      console.log(`Orchestrator: Checking for new items in ${scraper.name} category...`);
+      const newItemCount = await checkNewItemCount(scraper.url);
+      
+      if (newItemCount >= 10) {
+          console.log(`Found ${newItemCount} new ${scraper.name} items. Starting ${scraper.script}...`);
+          chosenScraper = scraper.script;
+          break; // Exit the loop as we've found a suitable scraper
+      } else {
+          console.log(`Found only ${newItemCount} new ${scraper.name} items. Checking next category...`);
+      }
   }
 
-  const scraper = spawn('node', [scraperScript], {
+  // If the loop finishes without finding any category with >= 10 items, it will use the default
+  if (chosenScraper === scraperSequence[0].script) {
+      console.log(`No category had 10+ new items. Defaulting to launch ${chosenScraper}.`);
+  }
+
+  const scraperProcess = spawn('node', [chosenScraper], {
     detached: true,
     stdio: 'inherit'
   });
 
-  scraper.unref();
-  console.log(`🚀 Vinted scraper (${scraperScript}) process has been started.`);
+  scraperProcess.unref();
+  console.log(`🚀 Vinted scraper (${chosenScraper}) process has been started.`);
 });
