@@ -1,4 +1,4 @@
-// Enhanced main.js - With Chart.js integration
+// Enhanced main.js - With advanced Chart.js integration
 class VintedDashboard {
   constructor() {
     this.salesContainer = document.getElementById("salesContainer");
@@ -10,8 +10,6 @@ class VintedDashboard {
     this.sortBtn = document.getElementById('sortBtn');
     this.sortBtnText = document.getElementById('sortBtnText');
     this.sortDropdown = document.getElementById('sortDropdown');
-
-    // NEW: Chart elements
     this.toggleChartsBtn = document.getElementById('toggleChartsBtn');
     this.chartsSection = document.getElementById('chartsSection');
 
@@ -24,7 +22,6 @@ class VintedDashboard {
     this.filterOptions = { brand: [], color: [], size: [] };
     this.activeDropdown = null;
     
-    // NEW: Chart instances
     this.brandChartInstance = null;
     this.categoryChartInstance = null;
     this.colorChartInstance = null;
@@ -60,7 +57,7 @@ class VintedDashboard {
   }
 
   mapColorNameToHex(colorName) {
-    if (!colorName) return null;
+    if (!colorName) return '#CCCCCC'; // Return a default grey if no color
     const firstColor = colorName.split(',')[0].trim().toLowerCase();
     const colorMap = {'black':'#000000', 'white':'#FFFFFF', 'grey':'#808080','gray':'#808080', 'silver':'#C0C0C0', 'red':'#FF0000','maroon':'#800000', 'orange':'#FFA500', 'yellow':'#FFFF00','olive':'#808000', 'lime':'#00FF00', 'green':'#008000','aqua':'#00FFFF', 'cyan':'#00FFFF', 'teal':'#008080','blue':'#0000FF', 'navy':'#000080', 'fuchsia':'#FF00FF','magenta':'#FF00FF', 'purple':'#800080', 'pink':'#FFC0CB','brown':'#A52A2A', 'beige':'#F5F5DC', 'khaki':'#F0E68C','gold':'#FFD700', 'cream':'#FFFDD0', 'burgundy':'#800020','mustard':'#FFDB58', 'turquoise':'#40E0D0', 'indigo':'#4B0082','violet':'#EE82EE', 'plum':'#DDA0DD', 'orchid':'#DA70D6','salmon':'#FA8072', 'coral':'#FF7F50', 'chocolate':'#D2691E','tan':'#D2B48C', 'ivory':'#FFFFF0', 'honeydew':'#F0FFF0','azure':'#F0FFFF', 'lavender':'#E6E6FA', 'rose':'#FFE4E1','lilac':'#C8A2C8', 'mint':'#98FF98', 'peach':'#FFDAB9','sky blue':'#87CEEB', 'royal blue':'#4169E1', 'cobalt':'#0047AB','denim':'#1560BD', 'emerald':'#50C878', 'mint green':'#98FF98','lime green':'#32CD32', 'forest green':'#228B22', 'olive green':'#6B8E23','mustard yellow':'#FFDB58', 'lemon':'#FFFACD', 'coral pink':'#F88379','hot pink':'#FF69B4', 'baby pink':'#F4C2C2', 'ruby':'#E0115F','scarlet':'#FF2400', 'wine':'#722F37', 'terracotta':'#E2725B','bronze':'#CD7F32', 'light blue':'#ADD8E6', 'dark green':'#006400','light grey':'#D3D3D3', 'dark blue':'#00008B', 'light green':'#90EE90','dark grey':'#A9A9A9', 'multicolour':'#CCCCCC', 'check':'#A9A9A9','floral':'#A9A9A9', 'animal print':'#A9A9A9', 'striped':'#A9A9A9','camouflage':'#A9A9A9', 'geometric':'#A9A9A9', 'abstract':'#A9A9A9'};
     return colorMap[firstColor] || '#CCCCCC';
@@ -97,7 +94,6 @@ class VintedDashboard {
     const sortedSales = this.sortSales(filteredSales);
     this.updateStats(sortedSales);
     
-    // NEW: Refresh charts if they are visible
     if (!this.chartsSection.classList.contains('hidden')) {
         this.updateCharts();
     }
@@ -118,43 +114,80 @@ class VintedDashboard {
     }).join("");
   }
 
-  // NEW: Function to create and update the pie charts
+  // <<< CHANGED: This entire method is updated for the new chart logic
   updateCharts() {
     const filteredSales = this.getFilteredSales();
     if (filteredSales.length === 0) return;
 
-    const processChartData = (data, keyExtractor) => {
+    // Generic data processor for simple "Top 5 + Other" charts
+    const processGenericChartData = (data, keyExtractor) => {
         const counts = data.reduce((acc, item) => {
             const key = keyExtractor(item);
-            if (key) {
-                acc[key] = (acc[key] || 0) + 1;
-            }
+            if (key) acc[key] = (acc[key] || 0) + 1;
             return acc;
         }, {});
-
         const sorted = Object.entries(counts).sort(([, a], [, b]) => b - a);
         const top5 = sorted.slice(0, 5);
         const otherCount = sorted.slice(5).reduce((sum, [, count]) => sum + count, 0);
-
         const labels = top5.map(([label]) => label);
         const values = top5.map(([, value]) => value);
-
         if (otherCount > 0) {
             labels.push('Other');
             values.push(otherCount);
         }
         return { labels, values };
     };
+
+    // Advanced data processor for the color chart
+    const processColorChartData = (data) => {
+        const counts = data.reduce((acc, item) => {
+            const key = item.color_name ? item.color_name.split(',')[0].trim() : 'N/A';
+            if (key) acc[key] = (acc[key] || 0) + 1;
+            return acc;
+        }, {});
+
+        const sorted = Object.entries(counts).sort(([, a], [, b]) => b - a);
+        const totalCount = data.length;
+        
+        let labels = [];
+        let values = [];
+        let backgroundColors = [];
+        let runningTotal = 0;
+        
+        for (const [colorName, count] of sorted) {
+            // Check if adding this slice would push "Other" below 25%
+            if ((runningTotal + count) / totalCount < 0.75 || labels.length < 2) { // Always show at least top 2
+                labels.push(colorName);
+                values.push(count);
+                backgroundColors.push(this.mapColorNameToHex(colorName));
+                runningTotal += count;
+            } else {
+                break; // The rest will be grouped into "Other"
+            }
+        }
+        
+        const otherCount = totalCount - runningTotal;
+        if (otherCount > 0) {
+            labels.push('Other');
+            values.push(otherCount);
+            backgroundColors.push('#CCCCCC'); // Grey for "Other"
+        }
+        
+        return { labels, values, backgroundColors };
+    };
     
-    const brandData = processChartData(filteredSales, item => this.extractBrand(item));
-    const categoryData = processChartData(filteredSales, item => item.category || 'N/A');
-    const colorData = processChartData(filteredSales, item => item.color_name ? item.color_name.split(',')[0].trim() : 'N/A');
+    const brandData = processGenericChartData(filteredSales, item => this.extractBrand(item));
+    const categoryData = processGenericChartData(filteredSales, item => item.category || 'N/A');
+    const colorData = processColorChartData(filteredSales);
 
     const createPieChart = (chartId, chartInstance, chartData, label) => {
         const ctx = document.getElementById(chartId).getContext('2d');
         if (chartInstance) {
             chartInstance.destroy();
         }
+        // Use specific colors for the color chart, or a default palette for others
+        const colors = chartData.backgroundColors || ['#007782', '#00a896', '#02c39a', '#f0f3bd', '#e9c46a', '#f4a261', '#e76f51'];
+
         return new Chart(ctx, {
             type: 'pie',
             data: {
@@ -162,7 +195,9 @@ class VintedDashboard {
                 datasets: [{
                     label: label,
                     data: chartData.values,
-                    backgroundColor: ['#007782', '#00a896', '#02c39a', '#f0f3bd', '#e9c46a', '#f4a261', '#e76f51', '#d8315b', '#4a4e69', '#22223b'],
+                    backgroundColor: colors,
+                    borderColor: '#ffffff',
+                    borderWidth: 2,
                     hoverOffset: 4
                 }]
             },
@@ -181,6 +216,7 @@ class VintedDashboard {
     this.categoryChartInstance = createPieChart('categoryChart', this.categoryChartInstance, categoryData, 'Categories');
     this.colorChartInstance = createPieChart('colorChart', this.colorChartInstance, colorData, 'Colors');
   }
+
 
   renderActiveFilters() {
     this.activeFiltersContainer.innerHTML = '';
@@ -313,11 +349,13 @@ class VintedDashboard {
     this.resetFiltersBtn.addEventListener('click', () => { window.location.reload(); });
     ['brand', 'color', 'size'].forEach(filterType => this.setupFilter(filterType));
     
-    // NEW: Event listener for chart toggle button
     this.toggleChartsBtn.addEventListener('click', () => {
         this.chartsSection.classList.toggle('hidden');
+        this.toggleChartsBtn.innerHTML = this.chartsSection.classList.contains('hidden') 
+            ? `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg> Show Stats`
+            : `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg> Hide Stats`;
         if (!this.chartsSection.classList.contains('hidden')) {
-            this.updateCharts(); // Generate charts when section is opened
+            this.updateCharts();
         }
     });
 
