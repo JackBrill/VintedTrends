@@ -95,7 +95,7 @@ function getTop50Proxy() {
 
       try {
         console.log("Navigating to Vinted catalog...");
-        const response = await page.goto(VINTED_CATALOG_URL, {
+        const response = await page.goto(DESIGNER_URL, {
           waitUntil: "domcontentloaded",
           timeout: 30000,
         });
