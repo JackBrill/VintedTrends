@@ -48,10 +48,10 @@
     }
 
     #chartsSection.charts-visible {
-        max-height: 500px; /* A height large enough to fit the content */
+        max-height: 400px; /* A height large enough to fit the content */
         opacity: 1;
-        padding-top: 1.5rem;  /* 24px */
-        padding-bottom: 1.5rem; /* 24px */
+        padding-top: 1rem;  /* 24px */
+        padding-bottom: 1rem; /* 24px */
     }
     </style>
 
@@ -194,21 +194,27 @@
         <div id="activeFiltersContainer" class="mb-4 flex flex-wrap items-center gap-2"></div>
 
         <div id="chartsSection" class="mb-8 bg-card border rounded-lg">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div>
-                    <h3 class="text-lg font-semibold text-center mb-4">Top Brands</h3>
-                    <canvas id="brandChart"></canvas>
-                </div>
-                <div>
-                    <h3 class="text-lg font-semibold text-center mb-4">Top Categories</h3>
-                    <canvas id="categoryChart"></canvas>
-                </div>
-                <div>
-                    <h3 class="text-lg font-semibold text-center mb-4">Top Colors</h3>
-                    <canvas id="colorChart"></canvas>
-                </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div>
+            <h3 class="text-lg font-semibold text-center mb-4">Top Brands</h3>
+            <div class="relative mx-auto w-full h-auto max-w-xs">
+                <canvas id="brandChart"></canvas>
             </div>
         </div>
+        <div>
+            <h3 class="text-lg font-semibold text-center mb-4">Top Categories</h3>
+            <div class="relative mx-auto w-full h-auto max-w-xs">
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </div>
+        <div>
+            <h3 class="text-lg font-semibold text-center mb-4">Top Colors</h3>
+            <div class="relative mx-auto w-full h-auto max-w-xs">
+                <canvas id="colorChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
 
         <div id="loadingState" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-6">
             <div class="bg-card border rounded-lg overflow-hidden loading-pulse">
