@@ -137,20 +137,41 @@ extractBrand(item) {
     const itemsForBrandFilter = this.getFilteredSales('brand');
     const itemsForColorFilter = this.getFilteredSales('color');
     const itemsForSizeFilter = this.getFilteredSales('size');
+    
     const brandCounts = new Map();
     itemsForBrandFilter.forEach(item => { const brand = this.extractBrand(item); if (brand) brandCounts.set(brand, (brandCounts.get(brand) || 0) + 1); });
+    
     const colorCounts = new Map();
     itemsForColorFilter.forEach(item => { const color = item.color_name ? item.color_name.split(',')[0].trim() : null; if (color) colorCounts.set(color, (colorCounts.get(color) || 0) + 1); });
+    
     const sizeCounts = new Map();
     itemsForSizeFilter.forEach(item => { const size = this.extractSize(item.subtitle); if (size) sizeCounts.set(size, (sizeCounts.get(size) || 0) + 1); });
-    this.filterOptions.brand = [...brandCounts.entries()].sort(([, a], [, b]) => b - a).map(([v, c]) => ({ value: v, count: c }));
-    this.filterOptions.color = [...colorCounts.entries()].sort(([, a], [, b]) => b - a).map(([v, c]) => ({ value: v, count: c }));
-    this.filterOptions.size = this.sortSizes([...sizeCounts.entries()].map(([v, c]) => ({ value: v, count: c })));
+
+    // NEW: Updated sorting logic for Brand and Colour
+    const sortWithAlphaTiebreaker = ([valueA, countA], [valueB, countB]) => {
+        // Primary sort: by count, descending
+        if (countB !== countA) {
+            return countB - countA;
+        }
+        // Secondary sort: by name, alphabetically (A-Z)
+        return valueA.localeCompare(valueB);
+    };
+
+    this.filterOptions.brand = [...brandCounts.entries()]
+      .sort(sortWithAlphaTiebreaker)
+      .map(([value, count]) => ({ value, count }));
+
+    this.filterOptions.color = [...colorCounts.entries()]
+      .sort(sortWithAlphaTiebreaker)
+      .map(([value, count]) => ({ value, count }));
+
+    // Size filter remains sorted by size order
+    this.filterOptions.size = this.sortSizes([...sizeCounts.entries()].map(([value, count]) => ({ value, count })));
+    
     this.updateFilterDropdown('brand', this.filterOptions.brand);
     this.updateFilterDropdown('color', this.filterOptions.color);
     this.updateFilterDropdown('size', this.filterOptions.size);
   }
-
   updateFilterDropdown(filterType, options) {
     const list = document.getElementById(`${filterType}FilterList`);
     if (!list) return;
