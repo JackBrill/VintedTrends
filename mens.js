@@ -6,14 +6,18 @@ import fetch from "node-fetch";
 import { PROXIES, DISCORD_WEBHOOK_URL, MENS_URL } from "./config.js";
 
 // Settings
-const BATCH_SIZE = 70; // number of items to track
+const BATCH_SIZE = 60; // number of items to track
 const CHECK_INTERVAL = 60 * 1000; // 60 seconds
 const BATCH_DURATION = 5 * 60 * 1000; // 5 minutes
 const CONCURRENT_CHECKS = 20; // Number of items to check at once
 const VERBOSE_LOGGING = false; 
 
-// Path to sales data -- UPDATED THIS LINE
+// Path to sales data
 const SALES_FILE = path.join(process.cwd(), "mens.json");
+
+// <<< CHANGE 1: Added constants for tracking history
+const TRACKED_HISTORY_FILE = path.join(process.cwd(), "tracked_history.json");
+const MAX_HISTORY_SIZE = 500; // Limits the history file to the last 500 tracked items
 
 // Load sales data
 function loadSales() {
@@ -30,6 +34,35 @@ function saveSales(data) {
   fs.writeFileSync(SALES_FILE, JSON.stringify(data, null, 2));
 }
 
+// <<< CHANGE 2: Added functions to load and save the tracking history
+/**
+ * Loads the history of tracked item URLs.
+ * @returns {Set<string>} A set of previously tracked URLs.
+ */
+function loadTrackedHistory() {
+    if (!fs.existsSync(TRACKED_HISTORY_FILE)) return new Set();
+    try {
+        const data = JSON.parse(fs.readFileSync(TRACKED_HISTORY_FILE, "utf8"));
+        return new Set(data);
+    } catch {
+        return new Set();
+    }
+}
+
+/**
+ * Saves the history of tracked item URLs.
+ * @param {Set<string>} historySet A set of tracked URLs to save.
+ */
+function saveTrackedHistory(historySet) {
+    let historyArray = Array.from(historySet);
+    // Trim the history to prevent the file from growing indefinitely
+    if (historyArray.length > MAX_HISTORY_SIZE) {
+        historyArray = historyArray.slice(historyArray.length - MAX_HISTORY_SIZE);
+    }
+    fs.writeFileSync(TRACKED_HISTORY_FILE, JSON.stringify(historyArray, null, 2));
+}
+
+
 /**
  * Converts a color name into a hex code.
  * @param {string} colorName - The color name from Vinted.
@@ -42,7 +75,7 @@ function mapColorToHex(colorName) {
         'black': '#000000', 'white': '#FFFFFF', 'grey': '#808080',
         'gray': '#808080', 'silver': '#C0C0C0', 'red': '#FF0000',
         'maroon': '#800000', 'orange': '#FFA500', 'yellow': '#FFFF00',
-        'olive': '#800000', 'lime': '#00FF00', 'green': '#008000',
+        'olive': '#808000', 'lime': '#00FF00', 'green': '#008000',
         'aqua': '#00FFFF', 'cyan': '#00FFFF', 'teal': '#008080',
         'blue': '#0000FF', 'navy': '#000080', 'fuchsia': '#FF00FF',
         'magenta': '#FF00FF', 'purple': '#800080', 'pink': '#FFC0CB',
@@ -96,8 +129,9 @@ function getRandomProxy() {
   while (true) {
     let attempt = 1;
     let items = [];
+    let trackedItems = []; // Moved trackedItems here to be accessible in the loop
 
-    while (items.length < BATCH_SIZE && attempt <= 5) {
+    while (trackedItems.length < BATCH_SIZE && attempt <= 5) {
       const proxy = getRandomProxy();
       console.log(`=== Attempt ${attempt} ===`);
       console.log(`Using proxy: ${proxy.host}:${proxy.port}`);
@@ -127,55 +161,44 @@ function getRandomProxy() {
 
         items = await page.$$('div[data-testid="grid-item"]');
         console.log(`Found ${items.length} items on the page.`);
+        
+        // <<< CHANGE 3: Logic to filter out previously tracked items
+        const trackedHistory = loadTrackedHistory();
+        console.log(`Loaded ${trackedHistory.size} items from tracking history.`);
 
-        if (items.length < BATCH_SIZE) {
-          console.log("Not enough items, retrying...");
+        const allAvailableItems = [];
+        for (const item of items) {
+            try {
+                const link = await item.$eval('a[data-testid$="--overlay-link"]', (el) => el.href);
+                // Only consider items not already in our history
+                if (!trackedHistory.has(link)) {
+                    const name = await item.$eval('[data-testid$="--description-title"]', (el) => el.innerText.trim());
+                    const subtitle = await item.$eval('[data-testid$="--description-subtitle"]', (el) => el.innerText.trim());
+                    const price = await item.$eval('[data-testid$="--price-text"]', (el) => el.innerText.trim());
+                    allAvailableItems.push({ name, subtitle, price, link, sold: false, startedAt: new Date(), soldAt: null, image: null, color_name: null, color_hex: null, category: null });
+                }
+            } catch (err) {
+                // Skip items that can't be parsed
+            }
+        }
+
+        console.log(`Found ${allAvailableItems.length} new, unique items to track.`);
+
+        if (allAvailableItems.length < BATCH_SIZE) {
+          console.log("Not enough new items to form a full batch, retrying...");
           attempt++;
           await browser.close();
           continue;
         }
 
-        console.log(`Tracking first ${BATCH_SIZE} items...`);
+        trackedItems = allAvailableItems.slice(0, BATCH_SIZE);
+        
+        // <<< CHANGE 4: Update the history with the new items for this batch
+        const newLinksToTrack = trackedItems.map(item => item.link);
+        newLinksToTrack.forEach(link => trackedHistory.add(link));
+        saveTrackedHistory(trackedHistory);
+        console.log(`Tracking ${trackedItems.length} items. History size is now ${trackedHistory.size}.`);
 
-        const trackedItems = [];
-        for (const item of items.slice(0, BATCH_SIZE)) {
-          try {
-            const name = await item.$eval(
-              '[data-testid$="--description-title"]',
-              (el) => el.innerText.trim()
-            );
-            const subtitle = await item.$eval(
-              '[data-testid$="--description-subtitle"]',
-              (el) => el.innerText.trim()
-            );
-            const price = await item.$eval(
-              '[data-testid$="--price-text"]',
-              (el) => el.innerText.trim()
-            );
-            const link = await item.$eval(
-              'a[data-testid$="--overlay-link"]',
-              (el) => el.href
-            );
-
-            trackedItems.push({
-              name,
-              subtitle,
-              price,
-              link,
-              sold: false,
-              startedAt: new Date(),
-              soldAt: null,
-              image: null,
-              color_name: null,
-              color_hex: null,
-              category: null, // <<< CHANGE 1: Added category field
-            });
-
-            console.log(`Tracking item: ${name} | ${link} | ${price}`);
-          } catch (err) {
-            console.log("Skipped an item due to error:", err.message);
-          }
-        }
 
         const namesList = trackedItems.map((i) => i.name).join(", ");
         await sendDiscordNotification({
@@ -195,7 +218,7 @@ function getRandomProxy() {
           let contextCheck;
           try {
               const proxy = getRandomProxy();
-              console.log(`🔄 Checking "${item.name}" with proxy: ${proxy.host}:${proxy.port}`);
+              // console.log(`🔄 Checking "${item.name}" with proxy: ${proxy.host}:${proxy.port}`); // This can be noisy
 
               contextCheck = await browser.newContext({
                   proxy: {
@@ -240,8 +263,7 @@ function getRandomProxy() {
                           item.color_hex = mapColorToHex(item.color_name);
                       }
                   } catch (err) { console.log("Could not fetch color for:", item.name); }
-
-                  // <<< CHANGE 2: Scrape the category from the breadcrumbs
+                  
                   try {
                     const categoryElement = await itemPage.$('ul.breadcrumbs li:nth-child(4) span[itemprop="title"]');
                     if (categoryElement) {
@@ -261,7 +283,6 @@ function getRandomProxy() {
                       fields: [
                           { name: "Name", value: item.name, inline: false },
                           { name: "Price", value: item.price, inline: true },
-                           // <<< CHANGE 3: Added category to Discord notification
                           { name: "Category", value: item.category || "N/A", inline: true},
                           { name: "Color", value: item.color_name || "N/A", inline: true},
                           { name: "Link", value: item.link, inline: false },
@@ -270,7 +291,7 @@ function getRandomProxy() {
                       timestamp: new Date().toISOString(),
                   });
               } else {
-                  console.log(`Item still available: ${item.name}`);
+                  // console.log(`Item still available: ${item.name}`); // This can be noisy
               }
           } catch (err) {
               if (!isClosing) console.log(`Error checking item "${item.name}":`, err.message);
@@ -295,7 +316,7 @@ function getRandomProxy() {
                 const batch = itemsToCheck.slice(i, i + CONCURRENT_CHECKS);
                 const promises = batch.map(item => checkItemStatus(item));
                 await Promise.all(promises);
-                console.log(`Completed a batch of ${batch.length} checks.`);
+                // console.log(`Completed a batch of ${batch.length} checks.`); // This can be noisy
             }
 
             console.log("Finished full check cycle.");
@@ -318,10 +339,11 @@ function getRandomProxy() {
       }
     }
 
-    if (items.length < BATCH_SIZE) {
+    if (trackedItems.length < BATCH_SIZE) {
       console.log(
-        "Failed to load enough items after multiple attempts. Restarting main loop..."
+        "Failed to load enough new items after multiple attempts. Restarting main loop in 60 seconds..."
       );
+      await new Promise(resolve => setTimeout(resolve, 60000));
     }
   }
 })();
