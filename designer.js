@@ -1,294 +1,304 @@
-// vinted.js
+// smart-scraper.js
 import { chromium } from "playwright";
 import fs from "fs";
 import path from "path";
 import fetch from "node-fetch";
 import { PROXIES, DISCORD_WEBHOOK_URL, DESIGNER_URL } from "./config.js";
 
-// Settings
-const BATCH_SIZE = 75; // number of items to track
+// === SETTINGS ===
+const BATCH_SIZE = 75;
 const CHECK_INTERVAL = 60 * 1000; // 60 seconds
-const BATCH_DURATION = 10 * 60 * 1000; // 5 minutes
-const CONCURRENT_CHECKS = 25; // Number of items to check at once
+const BATCH_DURATION = 15 * 60 * 1000; // 15 minutes
+const CONCURRENT_CHECKS = 25;
 const VERBOSE_LOGGING = true;
+const MAX_INITIAL_ATTEMPTS = 5;
 
-// Path to sales data
+// === SELECTORS (Centralized for easy updates) ===
+const SELECTORS = {
+    cookieAccept: '#onetrust-accept-btn-handler',
+    gridItem: 'div[data-testid="grid-item"]',
+    itemTitle: '[data-testid$="--description-title"]',
+    itemSubtitle: '[data-testid$="--description-subtitle"]',
+    itemPrice: '[data-testid$="--price-text"]',
+    itemLink: 'a[data-testid$="--overlay-link"]',
+    itemStatus: '[data-testid="item-status--content"]',
+    itemPhoto: 'img[data-testid^="item-photo-"]',
+    itemColor: 'div[data-testid="item-attributes-color"] div[itemprop="color"]',
+    itemDetails: '[data-testid="item-details"]' // A reliable element to confirm the product page has loaded
+};
+
 const SALES_FILE = path.join(process.cwd(), "designer.json");
 
-// Load sales data
-function loadSales() {
-  if (!fs.existsSync(SALES_FILE)) return [];
-  try {
-    return JSON.parse(fs.readFileSync(SALES_FILE, "utf8"));
-  } catch {
-    return [];
-  }
-}
+/**
+ * A more robust and intelligent Vinted scraper.
+ */
+class VintedScraper {
+    constructor() {
+        this.browser = null;
+        this.trackedItems = [];
+        this.isClosing = false;
+        this.checkTimeout = null;
+    }
 
-// Save sales data
-function saveSales(data) {
-  fs.writeFileSync(SALES_FILE, JSON.stringify(data, null, 2));
-}
+    // --- Logging Utility ---
+    log(level, message, ...args) {
+        const timestamp = new Date().toISOString();
+        const prefixes = {
+            INFO: 'INFO',
+            SUCCESS: '✅',
+            ERROR: '❌',
+            WARN: '⚠️'
+        };
+        console.log(`[${timestamp}] [${prefixes[level] || 'LOG'}] ${message}`, ...args);
+    }
 
-function mapColorToHex(colorName) {
-    if (!colorName) return null;
-    const firstColor = colorName.split(',')[0].trim().toLowerCase();
-    const colorMap = {
-        'black': '#000000', 'white': '#FFFFFF', 'grey': '#808080', 'gray': '#808080', 'silver': '#C0C0C0', 'red': '#FF0000', 'maroon': '#800000', 'orange': '#FFA500', 'yellow': '#FFFF00', 'olive': '#808000', 'lime': '#00FF00', 'green': '#008000', 'aqua': '#00FFFF', 'cyan': '#00FFFF', 'teal': '#008080', 'blue': '#0000FF', 'navy': '#000080', 'fuchsia': '#FF00FF', 'magenta': '#FF00FF', 'purple': '#800080', 'pink': '#FFC0CB', 'brown': '#A52A2A', 'beige': '#F5F5DC', 'khaki': '#F0E68C', 'gold': '#FFD700', 'cream': '#FFFDD0', 'burgundy': '#800020', 'mustard': '#FFDB58', 'turquoise': '#40E0D0', 'indigo': '#4B0082', 'violet': '#EE82EE', 'plum': '#DDA0DD', 'orchid': '#DA70D6', 'salmon': '#FA8072', 'coral': '#FF7F50', 'chocolate': '#D2691E', 'tan': '#D2B48C', 'ivory': '#FFFFF0', 'honeydew': '#F0FFF0', 'azure': '#F0FFFF', 'lavender': '#E6E6FA', 'rose': '#FFE4E1', 'lilac': '#C8A2C8', 'mint': '#98FF98', 'peach': '#FFDAB9', 'sky blue': '#87CEEB', 'royal blue': '#4169E1', 'cobalt': '#0047AB', 'denim': '#1560BD', 'emerald': '#50C878', 'mint green': '#98FF98', 'lime green': '#32CD32', 'forest green': '#228B22', 'olive green': '#6B8E23', 'mustard yellow': '#FFDB58', 'lemon': '#FFFACD', 'coral pink': '#F88379', 'hot pink': '#FF69B4', 'baby pink': '#F4C2C2', 'ruby': '#E0115F', 'scarlet': '#FF2400', 'wine': '#722F37', 'terracotta': '#E2725B', 'bronze': '#CD7F32', 'light blue': '#ADD8E6', 'dark green': '#006400', 'light grey': '#D3D3D3', 'dark blue': '#00008B', 'light green': '#90EE90', 'dark grey': '#A9A9A9', 'multicolour': '#CCCCCC', 'check': '#A9A9A9', 'floral': '#A9A9A9', 'animal print': '#A9A9A9', 'striped': '#A9A9A9', 'camouflage': '#A9A9A9', 'geometric': '#A9A9A9', 'abstract': '#A9A9A9'
-    };
-    return colorMap[firstColor] || null;
-}
-
-// Send Discord webhook
-async function sendDiscordNotification(embed) {
-  try {
-    await fetch(DISCORD_WEBHOOK_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ embeds: [embed] }),
-    });
-  } catch (err) {
-    console.log("❌ Failed to send Discord webhook:", err.message);
-  }
-}
-
-// Get random proxy from the FULL list
-function getRandomProxy() {
-  const proxyStr = PROXIES[Math.floor(Math.random() * PROXIES.length)];
-  const [host, port, user, pass] = proxyStr.split(":");
-  return { host, port, user, pass };
-}
-
-// NEW: Get random proxy from only the TOP 50 in the list
-function getTop50Proxy() {
-  const top50Proxies = PROXIES.slice(0, 50);
-  const proxyStr = top50Proxies[Math.floor(Math.random() * top50Proxies.length)];
-  const [host, port, user, pass] = proxyStr.split(":");
-  return { host, port, user, pass };
-}
-
-// === MAIN LOOP ===
-(async () => {
-  while (true) {
-    let attempt = 1;
-    let items = [];
-
-    while (items.length < BATCH_SIZE && attempt <= 5) {
-      // UPDATED: Use the new function for the main catalog scrape
-      const proxy = getTop50Proxy();
-      console.log(`=== Attempt ${attempt} ===`);
-      console.log(`Using a TOP 50 proxy: ${proxy.host}:${proxy.port}`);
-
-      const browser = await chromium.launch({ headless: true });
-      const context = await browser.newContext({
-        proxy: {
-          server: `http://${proxy.host}:${proxy.port}`,
-          username: proxy.user,
-          password: proxy.pass,
-        },
-        userAgent:
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
-        viewport: { width: 1280, height: 800 },
-      });
-
-      const page = await context.newPage();
-
-      try {
-        console.log("Navigating to Vinted catalog...");
-        const response = await page.goto(DESIGNER_URL, {
-          waitUntil: "domcontentloaded",
-          timeout: 30000,
-        });
-        console.log(`Response status: ${response.status()}`);
-        await page.waitForTimeout(2000);
-
-        items = await page.$$('div[data-testid="grid-item"]');
-        console.log(`Found ${items.length} items on the page.`);
-
-        if (items.length < BATCH_SIZE) {
-          console.log("Not enough items, retrying...");
-          attempt++;
-          await browser.close();
-          continue;
+    // --- Data Handling ---
+    loadSales() {
+        if (!fs.existsSync(SALES_FILE)) return [];
+        try {
+            return JSON.parse(fs.readFileSync(SALES_FILE, "utf8"));
+        } catch {
+            return [];
         }
+    }
 
-        console.log(`Tracking first ${BATCH_SIZE} items...`);
+    saveSales(data) {
+        fs.writeFileSync(SALES_FILE, JSON.stringify(data, null, 2));
+    }
 
-        const trackedItems = [];
-        for (const item of items.slice(0, BATCH_SIZE)) {
-          try {
-            const name = await item.$eval(
-              '[data-testid$="--description-title"]',
-              (el) => el.innerText.trim()
-            );
-            const subtitle = await item.$eval(
-              '[data-testid$="--description-subtitle"]',
-              (el) => el.innerText.trim()
-            );
-            const price = await item.$eval(
-              '[data-testid$="--price-text"]',
-              (el) => el.innerText.trim()
-            );
-            const link = await item.$eval(
-              'a[data-testid$="--overlay-link"]',
-              (el) => el.href
-            );
+    // --- Proxy Management ---
+    getRandomProxy(useTop50 = false) {
+        const proxyList = useTop50 ? PROXIES.slice(0, 50) : PROXIES;
+        const proxyStr = proxyList[Math.floor(Math.random() * proxyList.length)];
+        const [host, port, user, pass] = proxyStr.split(":");
+        return { server: `http://${host}:${port}`, username: user, password: pass };
+    }
 
-            trackedItems.push({
-              name,
-              subtitle,
-              price,
-              link,
-              sold: false,
-              startedAt: new Date(),
-              soldAt: null,
-              image: null,
-              color_name: null,
-              color_hex: null,
+    // --- Discord Notifications ---
+    async sendDiscordNotification(embed) {
+        try {
+            await fetch(DISCORD_WEBHOOK_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ embeds: [embed] }),
             });
-
-            console.log(`Tracking item: ${name} | ${link} | ${price}`);
-          } catch (err) {
-            console.log("Skipped an item due to error:", err.message);
-          }
+        } catch (err) {
+            this.log("ERROR", "Failed to send Discord webhook:", err.message);
         }
+    }
 
-        const namesList = trackedItems.map((i) => i.name).join(", ");
-        await sendDiscordNotification({
-          title: "📡 Scan Starting",
-          description: namesList || "No items",
-          color: 0x3498db,
-          timestamp: new Date().toISOString(),
-        });
+    /**
+     * Initializes the browser instance.
+     */
+    async init() {
+        this.log("INFO", "Launching browser...");
+        this.browser = await chromium.launch({ headless: true });
+    }
 
-        let keepChecking = true;
-        let isClosing = false;
+    /**
+     * Fetches the initial batch of items to track from the Vinted catalog.
+     */
+    async fetchInitialItems() {
+        for (let attempt = 1; attempt <= MAX_INITIAL_ATTEMPTS; attempt++) {
+            this.log("INFO", `Fetching initial items, attempt ${attempt}/${MAX_INITIAL_ATTEMPTS}...`);
+            const context = await this.browser.newContext({
+                proxy: this.getRandomProxy(true),
+                userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+            });
+            const page = await context.newPage();
 
-        async function checkItemStatus(item) {
-          if (item.sold) return;
+            try {
+                await page.goto(DESIGNER_URL, { waitUntil: "domcontentloaded", timeout: 45000 });
+                
+                // Smartly handle cookie banner
+                await page.click(SELECTORS.cookieAccept).catch(() => this.log("INFO", "Cookie banner not found or already accepted."));
 
-          let itemPage;
-          let contextCheck;
-          try {
-              // Individual checks continue to use a random proxy from the full list
-              const proxy = getRandomProxy();
-              console.log(`🔄 Checking "${item.name}" with proxy: ${proxy.host}:${proxy.port}`);
+                // Wait for the grid to be visible, not a fixed time
+                await page.waitForSelector(SELECTORS.gridItem, { timeout: 15000 });
 
-              contextCheck = await browser.newContext({
-                  proxy: {
-                      server: `http://${proxy.host}:${proxy.port}`,
-                      username: proxy.user,
-                      password: proxy.pass,
-                  },
-                  userAgent:
-                      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
-                  viewport: { width: 1280, height: 800 },
-              });
+                const items = await page.$$(SELECTORS.gridItem);
+                this.log("INFO", `Found ${items.length} items on the page.`);
 
-              itemPage = await contextCheck.newPage();
-              await itemPage.goto(item.link, { waitUntil: "domcontentloaded", timeout: 15000 });
-              await itemPage.waitForTimeout(1500);
-
-              if (VERBOSE_LOGGING) {
-                  const pageTitle = await itemPage.title();
-                  console.log(`[VERBOSE] Page title for "${item.name}": ${pageTitle}`);
-                  if (pageTitle.toLowerCase().includes("are you a human")) {
-                      console.log(`[!!!] CAPTCHA detected for item: ${item.name}. Proxy may be blocked.`);
-                  }
-              }
-
-              const soldElement = await itemPage.$('[data-testid="item-status--content"]');
-              const isSold = soldElement ? (await soldElement.innerText()).toLowerCase().includes("sold") : false;
-
-              if (isSold) {
-                  item.sold = true;
-                  item.soldAt = new Date();
-
-                  try {
-                      const imgEl = await itemPage.$('img[data-testid^="item-photo-"]');
-                      if (imgEl) item.image = await imgEl.getAttribute("src");
-                  } catch (err) { console.log("Failed to fetch image:", err.message); }
-
-                  try {
-                      const colorElement = await itemPage.$('div[data-testid="item-attributes-color"] div[itemprop="color"]');
-                      if (colorElement) {
-                          const colorName = await colorElement.innerText();
-                          item.color_name = colorName.trim();
-                          item.color_hex = mapColorToHex(item.color_name);
-                      }
-                  } catch (err) { console.log("Could not fetch color for:", item.name); }
-                  
-                  const sales = loadSales();
-                  sales.push(item);
-                  saveSales(sales);
-
-                  console.log(`✅ Item SOLD: ${item.name} | ${item.link} | ${item.price}`);
-
-                  await sendDiscordNotification({
-                      title: "🛑 Item SOLD",
-                      color: 0xff0000,
-                      fields: [
-                          { name: "Name", value: item.name, inline: false },
-                          { name: "Price", value: item.price, inline: true },
-                          { name: "Color", value: item.color_name || "N/A", inline: true},
-                          { name: "Link", value: item.link, inline: false },
-                      ],
-                      image: item.image ? { url: item.image } : undefined,
-                      timestamp: new Date().toISOString(),
-                  });
-              } else {
-                  console.log(`Item still available: ${item.name}`);
-              }
-          } catch (err) {
-              if (!isClosing) console.log(`Error checking item "${item.name}":`, err.message);
-          } finally {
-              if (itemPage) await itemPage.close().catch(() => {});
-              if (contextCheck) await contextCheck.close().catch(() => {});
-          }
+                if (items.length >= BATCH_SIZE) {
+                    this.trackedItems = await this.parseItems(items.slice(0, BATCH_SIZE));
+                    return true;
+                }
+            } catch (err) {
+                this.log("ERROR", `Attempt ${attempt} failed:`, err.message);
+            } finally {
+                await page.close();
+                await context.close();
+            }
         }
+        return false;
+    }
+    
+    /**
+     * Parses the raw item elements from the page into structured data.
+     */
+    async parseItems(itemElements) {
+        const parsedItems = [];
+        for (const item of itemElements) {
+            try {
+                const name = await item.$eval(SELECTORS.itemTitle, (el) => el.innerText.trim());
+                const subtitle = await item.$eval(SELECTORS.itemSubtitle, (el) => el.innerText.trim());
+                const price = await item.$eval(SELECTORS.itemPrice, (el) => el.innerText.trim());
+                const link = await item.$eval(SELECTORS.itemLink, (el) => el.href);
+                parsedItems.push({ name, subtitle, price, link, sold: false, startedAt: new Date(), soldAt: null, image: null, color_name: null });
+            } catch (err) {
+                this.log("WARN", "Skipped parsing an item due to error:", err.message);
+            }
+        }
+        return parsedItems;
+    }
 
 
-        const interval = setInterval(async () => {
-            if (!keepChecking || isClosing) return;
+    /**
+     * Checks the status of a single item. This is the core logic for each concurrent check.
+     */
+    async checkItemStatus(item) {
+        if (item.sold) return;
 
-            const itemsToCheck = trackedItems.filter(p => !p.sold);
-            if (itemsToCheck.length === 0) {
-                console.log("All tracked items have been sold. Nothing to check.");
+        const context = await this.browser.newContext({ proxy: this.getRandomProxy() });
+        const page = await context.newPage();
+
+        try {
+            await page.goto(item.link, { waitUntil: "domcontentloaded", timeout: 20000 });
+
+            const pageTitle = await page.title();
+            if (pageTitle.toLowerCase().includes("just a moment") || pageTitle.toLowerCase().includes("are you a human")) {
+                this.log("WARN", `Security check detected for "${item.name}". Proxy is likely flagged.`);
                 return;
             }
-            console.log(`Starting check for ${itemsToCheck.length} items with concurrency of ${CONCURRENT_CHECKS}...`);
 
-            for (let i = 0; i < itemsToCheck.length; i += CONCURRENT_CHECKS) {
-                const batch = itemsToCheck.slice(i, i + CONCURRENT_CHECKS);
-                const promises = batch.map(item => checkItemStatus(item));
-                await Promise.all(promises);
-                console.log(`Completed a batch of ${batch.length} checks.`);
+            // Wait for a reliable element to ensure the page is actually loaded
+            await page.waitForSelector(SELECTORS.itemDetails, { timeout: 10000 });
+
+            const soldElement = await page.$(SELECTORS.itemStatus);
+            if (soldElement && (await soldElement.innerText()).toLowerCase().includes("sold")) {
+                await this.processSoldItem(item, page);
+            } else if (VERBOSE_LOGGING) {
+                this.log("INFO", `Item still available: ${item.name}`);
             }
-
-            console.log("Finished full check cycle.");
-        }, CHECK_INTERVAL);
-
-
-        await new Promise((resolve) => setTimeout(resolve, BATCH_DURATION));
-
-        console.log("Batch duration ended. Closing browser...");
-        keepChecking = false;
-        isClosing = true;
-        clearInterval(interval);
-        await context.close().catch(() => {});
-        await browser.close().catch(() => {});
-        break; 
-      } catch (err) {
-        console.log("Navigation or extraction error:", err.message);
-        attempt++;
-        await browser.close().catch(() => {});
-      }
+        } catch (err) {
+            if (!this.isClosing) this.log("ERROR", `Error checking "${item.name}":`, err.message);
+        } finally {
+            await page.close();
+            await context.close();
+        }
     }
 
-    if (items.length < BATCH_SIZE) {
-      console.log(
-        "Failed to load enough items after multiple attempts. Restarting main loop..."
-      );
+    /**
+     * Processes a sold item: extracts extra data, saves it, and sends a notification.
+     */
+    async processSoldItem(item, page) {
+        item.sold = true;
+        item.soldAt = new Date();
+
+        try {
+            const imgEl = await page.$(SELECTORS.itemPhoto);
+            if (imgEl) item.image = await imgEl.getAttribute("src");
+
+            const colorEl = await page.$(SELECTORS.itemColor);
+            if (colorEl) item.color_name = (await colorEl.innerText()).trim();
+        } catch (err) {
+            this.log("WARN", "Could not fetch extra details (image/color) for sold item:", err.message);
+        }
+
+        const sales = this.loadSales();
+        sales.push(item);
+        this.saveSales(sales);
+        this.log("SUCCESS", `Item SOLD: ${item.name} | ${item.price}`);
+
+        this.sendDiscordNotification({
+            title: "🛑 Item SOLD",
+            color: 0xff0000,
+            fields: [
+                { name: "Name", value: item.name, inline: false },
+                { name: "Price", value: item.price, inline: true },
+                { name: "Color", value: item.color_name || "N/A", inline: true },
+                { name: "Link", value: item.link, inline: false },
+            ],
+            image: item.image ? { url: item.image } : undefined,
+            timestamp: new Date().toISOString(),
+        });
     }
-  }
-})();
+
+    /**
+     * The main loop that continuously checks items for their status.
+     */
+    async scheduleChecks() {
+        if (this.isClosing) return;
+
+        const itemsToCheck = this.trackedItems.filter(p => !p.sold);
+        if (itemsToCheck.length === 0) {
+            this.log("INFO", "All tracked items sold. Ending batch.");
+            this.stop();
+            return;
+        }
+
+        this.log("INFO", `Starting check for ${itemsToCheck.length} items with concurrency of ${CONCURRENT_CHECKS}...`);
+
+        for (let i = 0; i < itemsToCheck.length; i += CONCURRENT_CHECKS) {
+            const batch = itemsToCheck.slice(i, i + CONCURRENT_CHECKS);
+            await Promise.all(batch.map(item => this.checkItemStatus(item)));
+            this.log("INFO", `Completed a sub-batch of ${batch.length} checks.`);
+        }
+
+        this.log("INFO", "Full check cycle finished. Scheduling next check...");
+        this.checkTimeout = setTimeout(() => this.scheduleChecks(), CHECK_INTERVAL);
+    }
+    
+    /**
+     * Starts the monitoring process for a batch of items.
+     */
+    startMonitoring() {
+        this.isClosing = false;
+        const namesList = this.trackedItems.map((i) => i.name).join(", ");
+        this.sendDiscordNotification({
+            title: "📡 New Scan Batch Starting",
+            description: namesList || "No items found to track.",
+            color: 0x3498db,
+            timestamp: new Date().toISOString(),
+        });
+
+        this.scheduleChecks();
+        setTimeout(() => this.stop(), BATCH_DURATION);
+        this.log("INFO", `Monitoring started. This batch will run for ${BATCH_DURATION / 60000} minutes.`);
+    }
+
+    /**
+     * Stops the current batch, ready for the next one.
+     */
+    stop() {
+        if (this.isClosing) return;
+        this.log("INFO", "Batch duration ended. Stopping current monitoring cycle...");
+        this.isClosing = true;
+        clearTimeout(this.checkTimeout);
+    }
+
+    /**
+     * The main execution loop for the entire scraper.
+     */
+    async run() {
+        await this.init();
+        while (true) {
+            const success = await this.fetchInitialItems();
+            if (success) {
+                this.startMonitoring();
+                // Wait for the batch to finish
+                await new Promise(resolve => setTimeout(resolve, BATCH_DURATION + 2000));
+            } else {
+                this.log("ERROR", "Failed to fetch enough items after multiple attempts. Retrying in 5 minutes...");
+                await new Promise(resolve => setTimeout(resolve, 5 * 60 * 1000));
+            }
+        }
+    }
+}
+
+// === Main Execution ===
+const scraper = new VintedScraper();
+scraper.run().catch(err => {
+    console.error("A critical error occurred in the main scraper process:", err);
+    process.exit(1);
+});
