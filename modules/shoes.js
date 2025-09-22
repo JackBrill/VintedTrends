@@ -158,7 +158,7 @@ function getRandomProxy() {
         console.log(`Found ${allAvailableItems.length} new, unique items to track.`);
 
         // <<< CHANGED CONDITION: Check for at least 20 new items, not a full batch
-        if (allAvailableItems.length < 20) {
+        if (allAvailableItems.length < 10) {
           console.log("Not enough new items (less than 20), retrying...");
           attempt++;
           await browser.close();
