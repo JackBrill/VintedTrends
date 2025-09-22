@@ -3,7 +3,7 @@ import { chromium } from "playwright";
 import fs from "fs";
 import path from "path";
 import fetch from "node-fetch";
-import { PROXIES, DISCORD_WEBHOOK_URL, VINTED_CATALOG_URL } from "./config.js";
+import { PROXIES, DISCORD_WEBHOOK_URL, MENS_URL } from "./config.js";
 
 // Settings
 const BATCH_SIZE = 60; // number of items to track
@@ -118,7 +118,7 @@ function getRandomProxy() {
 
       try {
         console.log("Navigating to Vinted catalog...");
-        const response = await page.goto(VINTED_CATALOG_URL, {
+        const response = await page.goto(MENS_URL, {
           waitUntil: "domcontentloaded",
           timeout: 30000,
         });
