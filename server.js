@@ -7,11 +7,11 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from 'url';
 import { chromium } from "playwright";
-// <<< CHANGED: Import all necessary URLs for the new sequence
 import { PROXIES, MENS_URL, DESIGNER_URL, WOMENS_URL, SHOES_URL, ELECTRONICS_URL } from "./config.js";
 
 const app = express();
 const PORT = 3000;
+const ORCHESTRATION_INTERVAL = 15 * 60 * 1000;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,6 +19,7 @@ const __dirname = path.dirname(__filename);
 app.use(cors());
 app.use(express.static("public"));
 
+// ... (all your helper functions like loadTrackedHistory, checkNewItemCount, etc. remain here) ...
 const TRACKED_HISTORY_FILE = path.join(process.cwd(), "tracked_history.json");
 
 function loadTrackedHistory() {
@@ -67,10 +68,11 @@ async function checkNewItemCount(categoryUrl) {
     }
 }
 
+
+// ... (all your app.get routes remain here) ...
 app.get("/api/sales", (req, res) => {
   const { category } = req.query; 
   let sales = [];
-
   const readSalesFile = (fileName) => {
     const filePath = path.join(__dirname, fileName);
     if (fs.existsSync(filePath)) {
@@ -84,7 +86,6 @@ app.get("/api/sales", (req, res) => {
     }
     return [];
   };
-
   if (category) {
     sales = readSalesFile(`${category}.json`);
   } else {
@@ -96,10 +97,8 @@ app.get("/api/sales", (req, res) => {
     });
     sales = combinedSales;
   }
-  
   res.json(sales);
 });
-
 const allRoutes = ['/', '/mens', '/womens', '/designer', '/shoes', '/electronics',];
 allRoutes.forEach(route => {
     app.get(route, (req, res) => {
@@ -107,44 +106,52 @@ allRoutes.forEach(route => {
     });
 });
 
-app.listen(PORT, async () => {
+
+async function runOrchestration() {
+    console.log("==================================================");
+    console.log(`Starting new orchestration cycle at ${new Date().toLocaleTimeString()}`);
+    
+    const scraperSequence = [
+        { name: "Men's", url: MENS_URL, script: 'modules/mens.js' },
+        { name: "Designer", url: DESIGNER_URL, script: 'modules/designer.js' },
+        { name: "Women's", url: WOMENS_URL, script: 'modules/womens.js' },
+        { name: "Shoes", url: SHOES_URL, script: 'modules/shoes.js' },
+        { name: "Electronics", url: ELECTRONICS_URL, script: 'modules/electronics.js' }
+    ];
+
+    let chosenScraper = null; // Default to null
+
+    for (const scraper of scraperSequence) {
+        console.log(`Orchestrator: Checking for new items in ${scraper.name} category...`);
+        const newItemCount = await checkNewItemCount(scraper.url);
+        
+        // <<< CHANGED: Use your new threshold of 10
+        if (newItemCount >= 10) {
+            console.log(`Found ${newItemCount} new ${scraper.name} items. Starting ${scraper.script}...`);
+            chosenScraper = scraper.script;
+            break;
+        } else {
+            console.log(`Found only ${newItemCount} new ${scraper.name} items. Checking next category...`);
+        }
+    }
+    
+    // <<< NEW: If no scraper was chosen, run the history scanner as a fallback
+    if (!chosenScraper) {
+        console.log("No category had 10+ new items. Launching history scanner as a fallback.");
+        chosenScraper = 'modules/history_scanner.js';
+    }
+
+    const scraperProcess = spawn('node', [chosenScraper], {
+      detached: true,
+      stdio: 'inherit'
+    });
+
+    scraperProcess.unref();
+    console.log(`🚀 Vinted scraper (${chosenScraper}) process has been started.`);
+}
+
+app.listen(PORT, () => {
   console.log(`✅ Dashboard server running on port ${PORT}`);
-  
-  // <<< NEW: Define the sequence of scrapers to check
-  const scraperSequence = [
-      { name: "Men's", url: MENS_URL, script: 'modules/mens.js' },
-      { name: "Designer", url: DESIGNER_URL, script: 'modules/designer.js' },
-      { name: "Women's", url: WOMENS_URL, script: 'modules/womens.js' },
-      { name: "Shoes", url: SHOES_URL, script: 'modules/shoes.js' },
-      { name: "Electronics", url: ELECTRONICS_URL, script: 'modules/electronics.js' }
-  ];
-
-  let chosenScraper = scraperSequence[0].script; // Default to the first scraper
-
-  // <<< NEW: Loop through the sequence to find the first category with enough new items
-  for (const scraper of scraperSequence) {
-      console.log(`Orchestrator: Checking for new items in ${scraper.name} category...`);
-      const newItemCount = await checkNewItemCount(scraper.url);
-      
-      if (newItemCount >= 10) {
-          console.log(`Found ${newItemCount} new ${scraper.name} items. Starting ${scraper.script}...`);
-          chosenScraper = scraper.script;
-          break; // Exit the loop as we've found a suitable scraper
-      } else {
-          console.log(`Found only ${newItemCount} new ${scraper.name} items. Checking next category...`);
-      }
-  }
-
-  // If the loop finishes without finding any category with >= 10 items, it will use the default
-  if (chosenScraper === scraperSequence[0].script) {
-      console.log(`No category had 10+ new items. Defaulting to launch ${chosenScraper}.`);
-  }
-
-  const scraperProcess = spawn('node', [chosenScraper], {
-    detached: true,
-    stdio: 'inherit'
-  });
-
-  scraperProcess.unref();
-  console.log(`🚀 Vinted scraper (${chosenScraper}) process has been started.`);
+  runOrchestration();
+  setInterval(runOrchestration, ORCHESTRATION_INTERVAL);
 });
