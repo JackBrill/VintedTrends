@@ -42,7 +42,7 @@ function mapColorToHex(colorName) {
         'black': '#000000', 'white': '#FFFFFF', 'grey': '#808080',
         'gray': '#808080', 'silver': '#C0C0C0', 'red': '#FF0000',
         'maroon': '#800000', 'orange': '#FFA500', 'yellow': '#FFFF00',
-        'olive': '#808000', 'lime': '#00FF00', 'green': '#008000',
+        'olive': '#800000', 'lime': '#00FF00', 'green': '#008000',
         'aqua': '#00FFFF', 'cyan': '#00FFFF', 'teal': '#008080',
         'blue': '#0000FF', 'navy': '#000080', 'fuchsia': '#FF00FF',
         'magenta': '#FF00FF', 'purple': '#800080', 'pink': '#FFC0CB',
@@ -168,6 +168,7 @@ function getRandomProxy() {
               image: null,
               color_name: null,
               color_hex: null,
+              category: null, // <<< CHANGE 1: Added category field
             });
 
             console.log(`Tracking item: ${name} | ${link} | ${price}`);
@@ -239,6 +240,14 @@ function getRandomProxy() {
                           item.color_hex = mapColorToHex(item.color_name);
                       }
                   } catch (err) { console.log("Could not fetch color for:", item.name); }
+
+                  // <<< CHANGE 2: Scrape the category from the breadcrumbs
+                  try {
+                    const categoryElement = await itemPage.$('ul.breadcrumbs li:nth-child(4) span[itemprop="title"]');
+                    if (categoryElement) {
+                        item.category = await categoryElement.innerText();
+                    }
+                  } catch (err) { console.log("Could not fetch category for:", item.name); }
                   
                   const sales = loadSales();
                   sales.push(item);
@@ -252,6 +261,8 @@ function getRandomProxy() {
                       fields: [
                           { name: "Name", value: item.name, inline: false },
                           { name: "Price", value: item.price, inline: true },
+                           // <<< CHANGE 3: Added category to Discord notification
+                          { name: "Category", value: item.category || "N/A", inline: true},
                           { name: "Color", value: item.color_name || "N/A", inline: true},
                           { name: "Link", value: item.link, inline: false },
                       ],
