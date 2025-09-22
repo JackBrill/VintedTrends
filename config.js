@@ -55,5 +55,4 @@ export const PROXIES = [
 
 export const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1418908479229530223/8_Eg73-4nZL-QoaGKjXIJF0UOxEAMBiuZGRv5CS3VGd11gLvblOgaLNk1UIqmCbTyA6Z";
 
-export const VINTED_CATALOG_URL = "https://www.vinted.co.uk/?tab=designer"
-
+export const MENS_URL = "https://www.vinted.co.uk/catalog?search_id=26770150435&catalog[]=2050&order=newest_first"
