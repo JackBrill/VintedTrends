@@ -42,7 +42,7 @@ app.get("/api/sales", (req, res) => {
     sales = readSalesFile(`${category}.json`);
   } else {
     // For the homepage, read all possible files and combine them
-    const allFiles = ['mens.json', 'womens.json', 'shoes.json', 'designer.json'];
+    const allFiles = ['mens.json', 'womens.json', 'designer.json', 'shoes.json', 'electronics.json'];
     let combinedSales = [];
     allFiles.forEach(file => {
       const data = readSalesFile(file);
@@ -55,7 +55,7 @@ app.get("/api/sales", (req, res) => {
 });
 
 // All routes serve the same main dashboard file
-const allRoutes = ['/', '/mens', '/womens', '/shoes', '/designer'];
+const allRoutes = ['/', '/mens', '/womens', '/designer', '/shoes', '/electronics',];
 allRoutes.forEach(route => {
     app.get(route, (req, res) => {
         res.sendFile(path.join(__dirname, 'public', 'index.html'));
