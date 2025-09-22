@@ -232,6 +232,15 @@ function getRandomProxy() {
               });
 
               itemPage = await contextCheck.newPage();
+
+              // <<< BANDWIDTH REDUCTION: Block images, stylesheets, and fonts before navigating
+              const blocklist = ['image', 'stylesheet', 'font', 'media'];
+              await itemPage.route('**/*', (route) => {
+                  return blocklist.includes(route.request().resourceType())
+                      ? route.abort()
+                      : route.continue();
+              });
+
               await itemPage.goto(item.link, { waitUntil: "domcontentloaded", timeout: 15000 });
               await itemPage.waitForTimeout(1500);
 
@@ -249,11 +258,11 @@ function getRandomProxy() {
               if (isSold) {
                   item.sold = true;
                   item.soldAt = new Date();
-
-                  try {
-                      const imgEl = await itemPage.$('img[data-testid^="item-photo-"]');
-                      if (imgEl) item.image = await imgEl.getAttribute("src");
-                  } catch (err) { console.log("Failed to fetch image:", err.message); }
+                  
+                  // Note: Since images are blocked, we can no longer scrape the item.image.
+                  // This is a trade-off for saving bandwidth. If the image is critical,
+                  // you would need a more complex setup to load the page twice or enable images.
+                  item.image = null; 
 
                   try {
                       const colorElement = await itemPage.$('div[data-testid="item-attributes-color"] div[itemprop="color"]');
@@ -287,7 +296,8 @@ function getRandomProxy() {
                           { name: "Color", value: item.color_name || "N/A", inline: true},
                           { name: "Link", value: item.link, inline: false },
                       ],
-                      image: item.image ? { url: item.image } : undefined,
+                      // Image is now disabled due to bandwidth reduction
+                      image: item.image ? { url: item.image } : undefined, 
                       timestamp: new Date().toISOString(),
                   });
               } else {
