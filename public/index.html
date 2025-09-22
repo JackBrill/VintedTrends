@@ -13,6 +13,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5225204248300233" crossorigin="anonymous"></script>
 
     <style>
@@ -77,19 +79,17 @@
     <header class="bg-card/95 backdrop-blur-sm border-b fixed top-0 w-full z-40 shadow-sm">
         <div class="container mx-auto px-4 h-16 flex items-center justify-between">
             <div class="flex-1 flex justify-start">
-    <a href="https://www.vintrends.com/">
-        <h1 class="font-title text-2xl md:text-3xl font-bold text-primary">VinTrends</h1>
-    </a>
-</div>
-
-<nav class="hidden md:flex items-center gap-6">
-    <a href="https://www.vintrends.com/mens" class="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors">Mens</a>
-    <a href="https://www.vintrends.com/womens" class="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors">Womens</a>
-    <a href="https://www.vintrends.com/designer" class="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors">Designer</a>
-    <a href="https://www.vintrends.com/shoes" class="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors">Shoes</a>
-    <a href="https://www.vintrends.com/electronics" class="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors">Electronics</a>
-</nav>
-
+                <a href="https://www.vintrends.com/">
+                    <h1 class="font-title text-2xl md:text-3xl font-bold text-primary">VinTrends</h1>
+                </a>
+            </div>
+            <nav class="hidden md:flex items-center gap-6">
+                <a href="https://www.vintrends.com/mens" class="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors">Mens</a>
+                <a href="https://www.vintrends.com/womens" class="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors">Womens</a>
+                <a href="https://www.vintrends.com/designer" class="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors">Designer</a>
+                <a href="https://www.vintrends.com/shoes" class="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors">Shoes</a>
+                <a href="https://www.vintrends.com/electronics" class="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors">Electronics</a>
+            </nav>
             <div class="flex-1 flex justify-end">
                 <div class="relative">
                     <svg class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
@@ -112,7 +112,13 @@
 
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
             <div>
-                <h2 id="categoryTitle" class="text-2xl font-bold text-foreground">Latest Sales</h2>
+                <div class="flex items-center">
+                    <h2 id="categoryTitle" class="text-2xl font-bold text-foreground">Latest Sales</h2>
+                    <button id="toggleChartsBtn" class="ml-4 flex items-center gap-2 bg-primary/10 text-primary font-semibold text-xs px-3 py-1.5 rounded-full hover:bg-primary/20 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg>
+                        Show Stats
+                    </button>
+                </div>
                 <div id="statsDisplay" class="text-sm text-muted-foreground mt-1"></div>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
@@ -168,21 +174,36 @@
             </div>
         </div>
 
-        <div id="activeFiltersContainer" class="mb-4 flex flex-wrap items-center gap-2">
+        <div id="activeFiltersContainer" class="mb-4 flex flex-wrap items-center gap-2"></div>
+
+        <div id="chartsSection" class="mb-8 p-6 bg-card border rounded-lg hidden">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div>
+                    <h3 class="text-lg font-semibold text-center mb-4">Top Brands</h3>
+                    <canvas id="brandChart"></canvas>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-center mb-4">Top Categories</h3>
+                    <canvas id="categoryChart"></canvas>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-center mb-4">Top Colors</h3>
+                    <canvas id="colorChart"></canvas>
+                </div>
             </div>
+        </div>
 
         <div id="loadingState" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-6">
-            <div class="bg-card border rounded-lg overflow-hidden loading-pulse" v-for="i in 10" :key="i">
+            <div class="bg-card border rounded-lg overflow-hidden loading-pulse">
                 <div class="w-full aspect-[3/4] bg-muted"></div>
                 <div class="p-3">
                     <div class="h-4 bg-muted rounded w-3/4 mb-2"></div>
                     <div class="h-4 bg-muted rounded w-1/2"></div>
                 </div>
             </div>
-        </div>
-
-        <div id="salesContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-6 hidden">
             </div>
+
+        <div id="salesContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-6 hidden"></div>
     </main>
 
     <script src="main.js"></script>
