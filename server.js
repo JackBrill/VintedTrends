@@ -66,7 +66,7 @@ allRoutes.forEach(route => {
 app.listen(PORT, () => {
   console.log(`✅ Dashboard server running on port ${PORT}`);
   
-  const scraper = spawn('node', ['designer.js'], { // Make sure this runs vinted.js
+  const scraper = spawn('node', ['mens.js'], { // Make sure this runs vinted.js
     detached: true,
     stdio: 'inherit'
   });
