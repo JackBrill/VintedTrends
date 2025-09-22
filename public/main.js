@@ -47,22 +47,10 @@ class VintedDashboard {
     return subtitle ? (subtitle.split('·')[0].trim().toUpperCase() || null) : null;
   }
 
-  extractBrand(item) {
-    if (item.subtitle) {
-      const parts = item.subtitle.split('·');
-      if (parts.length > 1 && parts[1]) {
-        const brandCandidate = parts[1].trim();
-        const conditionBlacklist = ['new with tags', 'new without tags', 'very good', 'good', 'satisfactory'];
-        if (!conditionBlacklist.includes(brandCandidate.toLowerCase())) {
-          return brandCandidate;
-        }
-      }
-    }
-    if (item.name) {
-      return item.name.split(' ')[0];
-    }
-    return null;
-  }
+extractBrand(item) {
+    // Since the "name" field is the brand, we just return it.
+    return item.name || null;
+}
 
   mapColorNameToHex(colorName) {
     if (!colorName) return null;
