@@ -1,29 +1,19 @@
-// modules/mens.js
+// vinted.js
 import { chromium } from "playwright";
 import fs from "fs";
 import path from "path";
 import fetch from "node-fetch";
-import { PROXIES, DISCORD_WEBHOOK_URL, MENS_URL } from "../config.js";
+import { PROXIES, DISCORD_WEBHOOK_URL, MENS_URL } from "./config.js";
 
-// <<< NEW: Define the script name for logging
-const SCRIPT_NAME = 'mens.js';
-
-// <<< NEW: Create a custom logging function
-function log(message, ...args) {
-    console.log(`[${SCRIPT_NAME}] ${message}`, ...args);
-}
 // Settings
-const BATCH_SIZE = 60; // number of items to track
+const BATCH_SIZE = 50; // number of items to track
 const CHECK_INTERVAL = 60 * 1000; // 60 seconds
 const BATCH_DURATION = 5 * 60 * 1000; // 5 minutes
-const CONCURRENT_CHECKS = 20; // Number of items to check at once
-const VERBOSE_LOGGING = false; 
+const CONCURRENT_CHECKS = 10; // Number of items to check at once
+const VERBOSE_LOGGING = true; // ** NEW ** Set to true to see page content logs
 
 // Path to sales data
 const SALES_FILE = path.join(process.cwd(), "mens.json");
-
-const TRACKED_HISTORY_FILE = path.join(process.cwd(), "tracked_history.json");
-const MAX_HISTORY_SIZE = 500; // Limits the history file to the last 500 tracked items
 
 // Load sales data
 function loadSales() {
@@ -40,24 +30,11 @@ function saveSales(data) {
   fs.writeFileSync(SALES_FILE, JSON.stringify(data, null, 2));
 }
 
-function loadTrackedHistory() {
-    if (!fs.existsSync(TRACKED_HISTORY_FILE)) return new Set();
-    try {
-        const data = JSON.parse(fs.readFileSync(TRACKED_HISTORY_FILE, "utf8"));
-        return new Set(data);
-    } catch {
-        return new Set();
-    }
-}
-
-function saveTrackedHistory(historySet) {
-    let historyArray = Array.from(historySet);
-    if (historyArray.length > MAX_HISTORY_SIZE) {
-        historyArray = historyArray.slice(historyArray.length - MAX_HISTORY_SIZE);
-    }
-    fs.writeFileSync(TRACKED_HISTORY_FILE, JSON.stringify(historyArray, null, 2));
-}
-
+/**
+ * Converts a color name into a hex code.
+ * @param {string} colorName - The color name from Vinted.
+ * @returns {string|null} The corresponding hex code or null if not found.
+ */
 function mapColorToHex(colorName) {
     if (!colorName) return null;
     const firstColor = colorName.split(',')[0].trim().toLowerCase();
@@ -93,6 +70,8 @@ function mapColorToHex(colorName) {
     return hexValue;
 }
 
+
+// Send Discord webhook
 async function sendDiscordNotification(embed) {
   try {
     await fetch(DISCORD_WEBHOOK_URL, {
@@ -105,19 +84,20 @@ async function sendDiscordNotification(embed) {
   }
 }
 
+// Get random proxy
 function getRandomProxy() {
   const proxyStr = PROXIES[Math.floor(Math.random() * PROXIES.length)];
   const [host, port, user, pass] = proxyStr.split(":");
   return { host, port, user, pass };
 }
 
+// === MAIN LOOP ===
 (async () => {
   while (true) {
     let attempt = 1;
     let items = [];
-    let trackedItems = [];
 
-    while (trackedItems.length === 0 && attempt <= 5) {
+    while (items.length < BATCH_SIZE && attempt <= 5) {
       const proxy = getRandomProxy();
       console.log(`=== Attempt ${attempt} ===`);
       console.log(`Using proxy: ${proxy.host}:${proxy.port}`);
@@ -129,7 +109,8 @@ function getRandomProxy() {
           username: proxy.user,
           password: proxy.pass,
         },
-        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
+        userAgent:
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
         viewport: { width: 1280, height: 800 },
       });
 
@@ -137,45 +118,63 @@ function getRandomProxy() {
 
       try {
         console.log("Navigating to Vinted catalog...");
-        const response = await page.goto(MENS_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
+        const response = await page.goto(MENS_URL, {
+          waitUntil: "domcontentloaded",
+          timeout: 30000,
+        });
         console.log(`Response status: ${response.status()}`);
         await page.waitForTimeout(2000);
 
         items = await page.$$('div[data-testid="grid-item"]');
         console.log(`Found ${items.length} items on the page.`);
-        
-        const trackedHistory = loadTrackedHistory();
-        console.log(`Loaded ${trackedHistory.size} items from tracking history.`);
 
-        const allAvailableItems = [];
-        for (const item of items) {
-            try {
-                const link = await item.$eval('a[data-testid$="--overlay-link"]', (el) => el.href);
-                if (!trackedHistory.has(link)) {
-                    const name = await item.$eval('[data-testid$="--description-title"]', (el) => el.innerText.trim());
-                    const subtitle = await item.$eval('[data-testid$="--description-subtitle"]', (el) => el.innerText.trim());
-                    const price = await item.$eval('[data-testid$="--price-text"]', (el) => el.innerText.trim());
-                    allAvailableItems.push({ name, subtitle, price, link, sold: false, startedAt: new Date(), soldAt: null, image: null, color_name: null, color_hex: null, category: null });
-                }
-            } catch (err) { /* Skip items that can't be parsed */ }
-        }
-
-        console.log(`Found ${allAvailableItems.length} new, unique items to track.`);
-
-        // <<< CHANGED CONDITION: Check for at least 20 new items, not a full batch
-        if (allAvailableItems.length < 10) {
-          console.log("Not enough new items (less than 20), retrying...");
+        if (items.length < BATCH_SIZE) {
+          console.log("Not enough items, retrying...");
           attempt++;
           await browser.close();
           continue;
         }
 
-        trackedItems = allAvailableItems.slice(0, BATCH_SIZE);
-        
-        const newLinksToTrack = trackedItems.map(item => item.link);
-        newLinksToTrack.forEach(link => trackedHistory.add(link));
-        saveTrackedHistory(trackedHistory);
-        console.log(`Tracking ${trackedItems.length} items. History size is now ${trackedHistory.size}.`);
+        console.log(`Tracking first ${BATCH_SIZE} items...`);
+
+        const trackedItems = [];
+        for (const item of items.slice(0, BATCH_SIZE)) {
+          try {
+            const name = await item.$eval(
+              '[data-testid$="--description-title"]',
+              (el) => el.innerText.trim()
+            );
+            const subtitle = await item.$eval(
+              '[data-testid$="--description-subtitle"]',
+              (el) => el.innerText.trim()
+            );
+            const price = await item.$eval(
+              '[data-testid$="--price-text"]',
+              (el) => el.innerText.trim()
+            );
+            const link = await item.$eval(
+              'a[data-testid$="--overlay-link"]',
+              (el) => el.href
+            );
+
+            trackedItems.push({
+              name,
+              subtitle,
+              price,
+              link,
+              sold: false,
+              startedAt: new Date(),
+              soldAt: null,
+              image: null,
+              color_name: null,
+              color_hex: null,
+            });
+
+            console.log(`Tracking item: ${name} | ${link} | ${price}`);
+          } catch (err) {
+            console.log("Skipped an item due to error:", err.message);
+          }
+        }
 
         const namesList = trackedItems.map((i) => i.name).join(", ");
         await sendDiscordNotification({
@@ -189,87 +188,108 @@ function getRandomProxy() {
         let isClosing = false;
 
         async function checkItemStatus(item) {
-          if (item.sold) return;
-          let itemPage;
-          let contextCheck;
-          try {
-              const proxy = getRandomProxy();
-              contextCheck = await browser.newContext({
-                  proxy: { server: `http://${proxy.host}:${proxy.port}`, username: proxy.user, password: proxy.pass },
-                  userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
-                  viewport: { width: 1280, height: 800 },
-              });
-              itemPage = await contextCheck.newPage();
-              const blocklist = ['stylesheet', 'font', 'media'];
-              await itemPage.route('**/*', (route) => {
-                  return blocklist.includes(route.request().resourceType()) ? route.abort() : route.continue();
-              });
-              await itemPage.goto(item.link, { waitUntil: "domcontentloaded", timeout: 15000 });
-              await itemPage.waitForTimeout(1500);
+    if (item.sold) return;
 
-              const soldElement = await itemPage.$('[data-testid="item-status--content"]');
-              const isSold = soldElement ? (await soldElement.innerText()).toLowerCase().includes("sold") : false;
+    let itemPage;
+    let contextCheck;
+    try {
+        const proxy = getRandomProxy();
+        console.log(`🔄 Checking "${item.name}" with proxy: ${proxy.host}:${proxy.port}`);
 
-              if (isSold) {
-                  item.sold = true;
-                  item.soldAt = new Date();
-                  item.image = null; 
-                  try {
-                      const colorElement = await itemPage.$('div[data-testid="item-attributes-color"] div[itemprop="color"]');
-                      if (colorElement) {
-                          const colorName = await colorElement.innerText();
-                          item.color_name = colorName.trim();
-                          item.color_hex = mapColorToHex(item.color_name);
-                      }
-                  } catch (err) { console.log("Could not fetch color for:", item.name); }
-                  try {
-                    const categoryElement = await itemPage.$('ul.breadcrumbs li:nth-child(4) span[itemprop="title"]');
-                    if (categoryElement) {
-                        item.category = await categoryElement.innerText();
-                    }
-                  } catch (err) { console.log("Could not fetch category for:", item.name); }
-                  
-                  const sales = loadSales();
-                  sales.push(item);
-                  saveSales(sales);
-                  console.log(`✅ Item SOLD: ${item.name} | ${item.link} | ${item.price}`);
-                  await sendDiscordNotification({
-                      title: "🛑 Item SOLD",
-                      color: 0xff0000,
-                      fields: [
-                          { name: "Name", value: item.name, inline: false },
-                          { name: "Price", value: item.price, inline: true },
-                          { name: "Category", value: item.category || "N/A", inline: true},
-                          { name: "Color", value: item.color_name || "N/A", inline: true},
-                          { name: "Link", value: item.link, inline: false },
-                      ],
-                      image: item.image ? { url: item.image } : undefined, 
-                      timestamp: new Date().toISOString(),
-                  });
-              }
-          } catch (err) {
-              if (!isClosing) console.log(`Error checking item "${item.name}":`, err.message);
-          } finally {
-              if (itemPage) await itemPage.close().catch(() => {});
-              if (contextCheck) await contextCheck.close().catch(() => {});
-          }
+        contextCheck = await browser.newContext({
+            proxy: {
+                server: `http://${proxy.host}:${proxy.port}`,
+                username: proxy.user,
+                password: proxy.pass,
+            },
+            userAgent:
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
+            viewport: { width: 1280, height: 800 },
+        });
+
+        itemPage = await contextCheck.newPage();
+        await itemPage.goto(item.link, { waitUntil: "domcontentloaded", timeout: 15000 });
+        await itemPage.waitForTimeout(1500);
+
+        if (VERBOSE_LOGGING) {
+            const pageTitle = await itemPage.title();
+            console.log(`[VERBOSE] Page title for "${item.name}": ${pageTitle}`);
+            if (pageTitle.toLowerCase().includes("are you a human")) {
+                console.log(`[!!!] CAPTCHA detected for item: ${item.name}. Proxy may be blocked.`);
+            }
         }
+
+        const soldElement = await itemPage.$('[data-testid="item-status--content"]');
+        const isSold = soldElement ? (await soldElement.innerText()).toLowerCase().includes("sold") : false;
+
+        if (isSold) {
+            item.sold = true;
+            item.soldAt = new Date();
+
+            try {
+                const imgEl = await itemPage.$('img[data-testid^="item-photo-"]');
+                if (imgEl) item.image = await imgEl.getAttribute("src");
+            } catch (err) { console.log("Failed to fetch image:", err.message); }
+
+            try {
+                const colorElement = await itemPage.$('div[data-testid="item-attributes-color"] div[itemprop="color"]');
+                if (colorElement) {
+                    const colorName = await colorElement.innerText();
+                    item.color_name = colorName.trim();
+                    item.color_hex = mapColorToHex(item.color_name);
+                }
+            } catch (err) { console.log("Could not fetch color for:", item.name); }
+            
+            const sales = loadSales();
+            sales.push(item);
+            saveSales(sales);
+
+            console.log(`✅ Item SOLD: ${item.name} | ${item.link} | ${item.price}`);
+
+            await sendDiscordNotification({
+                title: "🛑 Item SOLD",
+                color: 0xff0000,
+                fields: [
+                    { name: "Name", value: item.name, inline: false },
+                    { name: "Price", value: item.price, inline: true },
+                    { name: "Color", value: item.color_name || "N/A", inline: true},
+                    { name: "Link", value: item.link, inline: false },
+                ],
+                image: item.image ? { url: item.image } : undefined,
+                timestamp: new Date().toISOString(),
+            });
+        } else {
+            console.log(`Item still available: ${item.name}`);
+        }
+    } catch (err) {
+        if (!isClosing) console.log(`Error checking item "${item.name}":`, err.message);
+    } finally {
+        if (itemPage) await itemPage.close().catch(() => {});
+        if (contextCheck) await contextCheck.close().catch(() => {});
+    }
+}
+
 
         const interval = setInterval(async () => {
             if (!keepChecking || isClosing) return;
+
             const itemsToCheck = trackedItems.filter(p => !p.sold);
             if (itemsToCheck.length === 0) {
                 console.log("All tracked items have been sold. Nothing to check.");
                 return;
             }
             console.log(`Starting check for ${itemsToCheck.length} items with concurrency of ${CONCURRENT_CHECKS}...`);
+
             for (let i = 0; i < itemsToCheck.length; i += CONCURRENT_CHECKS) {
                 const batch = itemsToCheck.slice(i, i + CONCURRENT_CHECKS);
                 const promises = batch.map(item => checkItemStatus(item));
                 await Promise.all(promises);
+                console.log(`Completed a batch of ${batch.length} checks.`);
             }
+
             console.log("Finished full check cycle.");
         }, CHECK_INTERVAL);
+
 
         await new Promise((resolve) => setTimeout(resolve, BATCH_DURATION));
 
@@ -287,11 +307,11 @@ function getRandomProxy() {
       }
     }
 
-    if (trackedItems.length === 0) {
+    if (items.length < BATCH_SIZE) {
       console.log(
-        "Failed to load a sufficient batch of new items after multiple attempts. Restarting main loop in 60 seconds..."
+        "Failed to load enough items after multiple attempts. Restarting main loop..."
       );
-      await new Promise(resolve => setTimeout(resolve, 60000));
     }
   }
 })();
+
