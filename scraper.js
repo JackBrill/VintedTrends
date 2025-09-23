@@ -121,50 +121,67 @@ async function scrapeCategory(job) {
             let keepChecking = true;
             let isClosing = false;
             
-            async function checkItemStatus(item) {
-                if (item.sold) return;
-                let itemPage, contextCheck;
-                try {
-                    const proxyCheck = getRandomProxy();
-                    contextCheck = await browser.newContext({
-                        proxy: { server: `http://${proxyCheck.host}:${proxyCheck.port}`, username: proxyCheck.user, password: proxyCheck.pass },
-                        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
-                    });
-                    itemPage = await contextCheck.newPage();
-                    await itemPage.goto(item.link, { waitUntil: "domcontentloaded", timeout: 30000 });
+           // In scraper.js, replace the entire checkItemStatus function with this one
 
-                    const soldElement = await itemPage.$('[data-testid="item-status--content"]');
-                    if (soldElement && (await soldElement.innerText()).toLowerCase().includes("sold")) {
-                        item.sold = true;
-                        item.soldAt = new Date();
+async function checkItemStatus(item, retryCount = 0) {
+    if (item.sold) return;
+    let itemPage, contextCheck;
+    const logPrefix = `[${job.name}]`; // Make sure to define job if it's not in scope
+    const SALES_FILE = path.join(process.cwd(), job.file); // Same for this
 
-                        try { item.image = await itemPage.$eval('img[data-testid^="item-photo-"]', el => el.src); } catch (e) {}
-                        try { 
-                            const colorName = await itemPage.$eval('div[data-testid="item-attributes-color"] div[itemprop="color"]', el => el.innerText.trim());
-                            item.color_name = colorName;
-                            item.color_hex = mapColorToHex(colorName);
-                        } catch (e) {}
-                        
-                        const sales = loadSales(SALES_FILE);
-                        sales.push(item);
-                        saveSales(SALES_FILE, sales);
-                        console.log(`✅ ${logPrefix} Item SOLD: ${item.name}`);
+    try {
+        const proxyCheck = getRandomProxy();
+        contextCheck = await browser.newContext({
+            proxy: { server: `http://${proxyCheck.host}:${proxyCheck.port}`, username: proxyCheck.user, password: proxyCheck.pass },
+            userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36", // Updated User-Agent
+        });
+        itemPage = await contextCheck.newPage();
+        await itemPage.goto(item.link, { waitUntil: "domcontentloaded", timeout: 45000 }); // Increased timeout to 45s
 
-                        await sendDiscordNotification({
-                            title: `🛑 ${logPrefix} Item SOLD`,
-                            color: 0xff0000,
-                            fields: [{ name: "Name", value: item.name }, { name: "Price", value: item.price, inline: true }, { name: "Color", value: item.color_name || "N/A", inline: true }, { name: "Link", value: item.link }],
-                            image: { url: item.image },
-                            timestamp: new Date().toISOString()
-                        });
-                    }
-                } catch (err) {
-                    if (!isClosing) console.log(`Error checking item "${item.name}":`, err.message);
-                } finally {
-                    if (itemPage) await itemPage.close().catch(() => {});
-                    if (contextCheck) await contextCheck.close().catch(() => {});
-                }
-            }
+        // --- NEW: Add human-like interaction ---
+        await itemPage.waitForTimeout(Math.random() * 2000 + 1000); // Wait for a random 1-3 seconds
+        await itemPage.mouse.wheel(0, 500); // Scroll down a bit
+        await itemPage.waitForTimeout(500); // Wait half a second
+        // --- End of new interaction ---
+
+        const soldElement = await itemPage.$('[data-testid="item-status--content"]');
+        if (soldElement && (await soldElement.innerText()).toLowerCase().includes("sold")) {
+            item.sold = true;
+            item.soldAt = new Date();
+
+            try { item.image = await itemPage.$eval('img[data-testid^="item-photo-"]', el => el.src); } catch (e) {}
+            try { 
+                const colorName = await itemPage.$eval('div[data-testid="item-attributes-color"] div[itemprop="color"]', el => el.innerText.trim());
+                item.color_name = colorName;
+                item.color_hex = mapColorToHex(colorName);
+            } catch (e) {}
+            
+            const sales = loadSales(SALES_FILE);
+            sales.push(item);
+            saveSales(SALES_FILE, sales);
+            console.log(`✅ ${logPrefix} Item SOLD: ${item.name}`);
+
+            await sendDiscordNotification({
+                title: `🛑 ${logPrefix} Item SOLD`,
+                color: 0xff0000,
+                fields: [{ name: "Name", value: item.name }, { name: "Price", value: item.price, inline: true }, { name: "Color", value: item.color_name || "N/A", inline: true }, { name: "Link", value: item.link }],
+                image: { url: item.image },
+                timestamp: new Date().toISOString()
+            });
+        }
+    } catch (err) {
+        if (retryCount < 2) { 
+            console.warn(`[RETRYING] Error on "${item.name}" (Attempt ${retryCount + 1}). Retrying...`);
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            await checkItemStatus(item, retryCount + 1);
+        } else {
+            console.error(`[FAILED] Error checking item "${item.name}" after multiple retries:`, err.message);
+        }
+    } finally {
+        if (itemPage) await itemPage.close().catch(() => {});
+        if (contextCheck) await contextCheck.close().catch(() => {});
+    }
+}
 
             const interval = setInterval(() => {
                 if (!keepChecking || isClosing) return;
