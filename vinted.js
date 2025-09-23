@@ -276,6 +276,10 @@ function getRandomProxy() {
                   image: item.image ? { url: item.image } : undefined,
                   timestamp: new Date().toISOString(),
                 });
+              } else {
+                if (VERBOSE_LOGGING) {
+                    console.log(`👍 Item still available: ${item.name}`);
+                }
               }
             } catch (err) {
               if (!isClosing) console.log(`Error checking item "${item.name}":`, err.message);
@@ -325,3 +329,4 @@ function getRandomProxy() {
     console.log("Completed a full cycle of all categories. Restarting...");
   }
 })();
+
