@@ -7,7 +7,7 @@ import path from "path";
 
 const app = express();
 const PORT = 3000;
-const SALES_FILE = path.join(process.cwd(), "sales.json");
+const SALES_FILE = path.join(process.cwd(), "mens.json");
 
 // ** 2. Use the cors middleware **
 // This will allow your domain to make requests to the API.
