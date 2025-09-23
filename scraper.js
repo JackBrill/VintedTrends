@@ -1,4 +1,5 @@
-import { chromium } from "playwright";
+import { chromium } from 'playwright-extra';
+import stealth from 'playwright-extra-plugin-stealth';
 import fs from "fs";
 import path from "path";
 import fetch from "node-fetch";
