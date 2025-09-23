@@ -12,6 +12,7 @@ class VintedDashboard {
     this.sortDropdown = document.getElementById('sortDropdown');
     this.toggleChartsBtn = document.getElementById('toggleChartsBtn');
     this.chartsSection = document.getElementById('chartsSection');
+    this.categoryTitle = document.getElementById('categoryTitle'); // Make sure this element exists in your HTML
 
     // State
     this.allSales = [];
@@ -94,7 +95,7 @@ class VintedDashboard {
     const sortedSales = this.sortSales(filteredSales);
     this.updateStats(sortedSales);
     
-    if (!this.chartsSection.classList.contains('hidden')) {
+    if (this.chartsSection.classList.contains('charts-visible')) {
         this.updateCharts();
     }
 
@@ -114,12 +115,10 @@ class VintedDashboard {
     }).join("");
   }
 
-  // <<< CHANGED: This entire method is updated for the new chart logic
   updateCharts() {
     const filteredSales = this.getFilteredSales();
     if (filteredSales.length === 0) return;
 
-    // Generic data processor for simple "Top 5 + Other" charts
     const processGenericChartData = (data, keyExtractor) => {
         const counts = data.reduce((acc, item) => {
             const key = keyExtractor(item);
@@ -138,7 +137,6 @@ class VintedDashboard {
         return { labels, values };
     };
 
-    // Advanced data processor for the color chart
     const processColorChartData = (data) => {
         const counts = data.reduce((acc, item) => {
             const key = item.color_name ? item.color_name.split(',')[0].trim() : 'N/A';
@@ -155,14 +153,13 @@ class VintedDashboard {
         let runningTotal = 0;
         
         for (const [colorName, count] of sorted) {
-            // Check if adding this slice would push "Other" below 25%
-            if ((runningTotal + count) / totalCount < 0.75 || labels.length < 2) { // Always show at least top 2
+            if ((runningTotal + count) / totalCount < 0.75 || labels.length < 2) { 
                 labels.push(colorName);
                 values.push(count);
                 backgroundColors.push(this.mapColorNameToHex(colorName));
                 runningTotal += count;
             } else {
-                break; // The rest will be grouped into "Other"
+                break; 
             }
         }
         
@@ -170,7 +167,7 @@ class VintedDashboard {
         if (otherCount > 0) {
             labels.push('Other');
             values.push(otherCount);
-            backgroundColors.push('#CCCCCC'); // Grey for "Other"
+            backgroundColors.push('#CCCCCC'); 
         }
         
         return { labels, values, backgroundColors };
@@ -185,7 +182,6 @@ class VintedDashboard {
         if (chartInstance) {
             chartInstance.destroy();
         }
-        // Use specific colors for the color chart, or a default palette for others
         const colors = chartData.backgroundColors || ['#007782', '#00a896', '#02c39a', '#f0f3bd', '#e9c46a', '#f4a261', '#e76f51'];
 
         return new Chart(ctx, {
@@ -216,7 +212,6 @@ class VintedDashboard {
     this.categoryChartInstance = createPieChart('categoryChart', this.categoryChartInstance, categoryData, 'Categories');
     this.colorChartInstance = createPieChart('colorChart', this.colorChartInstance, colorData, 'Colors');
   }
-
 
   renderActiveFilters() {
     this.activeFiltersContainer.innerHTML = '';
@@ -306,9 +301,25 @@ class VintedDashboard {
     });
   }
 
-  async fetchSales() {
-    let apiUrl = "/api/sales";
+  updateCategoryTitle() {
     const path = window.location.pathname;
+    let title = "Latest Sales"; // Default title for homepage
+    if (path.startsWith('/mens')) title = "Men's Latest Sales";
+    else if (path.startsWith('/womens')) title = "Women's Latest Sales";
+    else if (path.startsWith('/designer')) title = "Designer Latest Sales";
+    else if (path.startsWith('/shoes')) title = "Latest Shoe Sales";
+    else if (path.startsWith('/electronics')) title = "Electronics Latest Sales";
+    
+    if (this.categoryTitle) {
+      this.categoryTitle.textContent = title;
+    }
+  }
+
+  async fetchSales() {
+    let apiUrl = "/api/sales"; // Default for homepage
+    const path = window.location.pathname;
+    
+    // Map browser path to API query parameter
     if (path.startsWith('/mens')) apiUrl = "/api/sales?category=mens";
     else if (path.startsWith('/womens')) apiUrl = "/api/sales?category=womens";
     else if (path.startsWith('/designer')) apiUrl = "/api/sales?category=designer";
@@ -349,7 +360,6 @@ class VintedDashboard {
     this.resetFiltersBtn.addEventListener('click', () => { window.location.reload(); });
     ['brand', 'color', 'size'].forEach(filterType => this.setupFilter(filterType));
     
-    // Replace it with this
 this.toggleChartsBtn.addEventListener('click', () => {
     this.chartsSection.classList.toggle('charts-visible');
     const isVisible = this.chartsSection.classList.contains('charts-visible');
@@ -444,6 +454,7 @@ this.toggleChartsBtn.addEventListener('click', () => {
   }
 
   init() {
+    this.updateCategoryTitle(); // Set the title on initial load
     this.setupEventListeners();
     this.fetchSales();
     setInterval(() => { this.fetchSales(); }, 30000);
@@ -453,3 +464,4 @@ this.toggleChartsBtn.addEventListener('click', () => {
 document.addEventListener('DOMContentLoaded', () => {
   window.vintedDashboard = new VintedDashboard();
 });
+
