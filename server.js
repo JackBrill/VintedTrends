@@ -36,7 +36,7 @@ app.get("/api/sales", (req, res) => {
 app.listen(PORT, () => {
   console.log(`✅ Dashboard running at http://localhost:${PORT}`);
   
-  const scraper = spawn('node', ['modules/mens.js'], {
+  const scraper = spawn('node', ['mens.js'], {
     detached: true,
     stdio: 'inherit'
   });
