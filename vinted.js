@@ -3,7 +3,7 @@ import { chromium } from "playwright";
 import fs from "fs";
 import path from "path";
 import fetch from "node-fetch";
-import { PROXIES, DISCORD_WEBHOOK_URL, VINTED_CATALOG_URL } from "./config.js";
+import { PROXIES, DISCORD_WEBHOOK_URL, MENS_URL } from "./config.js";
 
 // Settings
 const BATCH_SIZE = 50; // number of items to track
@@ -13,7 +13,7 @@ const CONCURRENT_CHECKS = 10; // Number of items to check at once
 const VERBOSE_LOGGING = true; // ** NEW ** Set to true to see page content logs
 
 // Path to sales data
-const SALES_FILE = path.join(process.cwd(), "sales.json");
+const SALES_FILE = path.join(process.cwd(), "mens.json");
 
 // Load sales data
 function loadSales() {
@@ -118,7 +118,7 @@ function getRandomProxy() {
 
       try {
         console.log("Navigating to Vinted catalog...");
-        const response = await page.goto(VINTED_CATALOG_URL, {
+        const response = await page.goto(MENS_URL, {
           waitUntil: "domcontentloaded",
           timeout: 30000,
         });
