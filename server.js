@@ -39,7 +39,7 @@ app.get("/api/sales", (req, res) => {
 
 // This is a catch-all route that serves the index.html file for any non-API route.
 // This is crucial for a single-page application (SPA) to handle client-side routing.
-app.get('*', (req, res) => {
+app.get('/*', (req, res) => {
   res.sendFile(path.join(publicPath, 'index.html'));
 });
 
