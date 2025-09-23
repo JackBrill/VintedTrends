@@ -1,56 +1,82 @@
 // config.js
 
 export const PROXIES = [
-  "104.252.81.67:5938:mtqikwov:autmrqhdcnfn",
-  "104.252.81.97:5968:mtqikwov:autmrqhdcnfn",
-  "156.241.53.166:6387:mtqikwov:autmrqhdcnfn",
-  "156.241.53.252:6473:mtqikwov:autmrqhdcnfn",
-  "156.241.52.171:6892:mtqikwov:autmrqhdcnfn",
-  "104.252.81.102:5973:mtqikwov:autmrqhdcnfn",
-  "104.252.81.187:6058:mtqikwov:autmrqhdcnfn",
-  "156.241.52.141:6862:mtqikwov:autmrqhdcnfn",
-  "104.252.62.11:5382:mtqikwov:autmrqhdcnfn",
-  "104.252.62.183:5554:mtqikwov:autmrqhdcnfn",
-  "156.241.52.253:6974:mtqikwov:autmrqhdcnfn",
-  "104.252.62.45:5416:mtqikwov:autmrqhdcnfn",
-  "104.252.81.190:6061:mtqikwov:autmrqhdcnfn",
-  "156.241.53.221:6442:mtqikwov:autmrqhdcnfn",
-  "104.252.62.139:5510:mtqikwov:autmrqhdcnfn",
-  "104.252.81.129:6000:mtqikwov:autmrqhdcnfn",
-  "156.241.53.43:6264:mtqikwov:autmrqhdcnfn",
-  "104.252.62.141:5512:mtqikwov:autmrqhdcnfn",
-  "156.241.52.59:6780:mtqikwov:autmrqhdcnfn",
-  "156.241.52.110:6831:mtqikwov:autmrqhdcnfn",
-  "104.252.62.252:5623:mtqikwov:autmrqhdcnfn",
-  "156.241.52.166:6887:mtqikwov:autmrqhdcnfn",
-  "104.252.81.127:5998:mtqikwov:autmrqhdcnfn",
-  "156.241.52.5:6726:mtqikwov:autmrqhdcnfn",
-  "104.252.81.87:5958:mtqikwov:autmrqhdcnfn",
-  "156.241.52.230:6951:mtqikwov:autmrqhdcnfn",
-  "156.241.53.126:6347:mtqikwov:autmrqhdcnfn",
-  "104.252.81.96:5967:mtqikwov:autmrqhdcnfn",
-  "156.241.53.69:6290:mtqikwov:autmrqhdcnfn",
-  "156.241.53.85:6306:mtqikwov:autmrqhdcnfn",
-  "104.252.81.162:6033:mtqikwov:autmrqhdcnfn",
-  "104.252.81.138:6009:mtqikwov:autmrqhdcnfn",
-  "104.252.81.51:5922:mtqikwov:autmrqhdcnfn",
-  "104.252.81.188:6059:mtqikwov:autmrqhdcnfn",
-  "156.241.52.27:6748:mtqikwov:autmrqhdcnfn",
-  "104.252.62.238:5609:mtqikwov:autmrqhdcnfn",
-  "156.241.52.160:6881:mtqikwov:autmrqhdcnfn",
-  "104.252.81.19:5890:mtqikwov:autmrqhdcnfn",
-  "104.252.62.169:5540:mtqikwov:autmrqhdcnfn",
-  "156.241.53.186:6407:mtqikwov:autmrqhdcnfn",
-  "104.252.81.18:5889:mtqikwov:autmrqhdcnfn",
-  "156.241.52.161:6882:mtqikwov:autmrqhdcnfn",
-  "156.241.52.179:6900:mtqikwov:autmrqhdcnfn",
-  "156.241.53.23:6244:mtqikwov:autmrqhdcnfn",
-  "104.252.62.34:5405:mtqikwov:autmrqhdcnfn",
-  "104.252.62.83:5454:mtqikwov:autmrqhdcnfn",
-  "156.241.52.189:6910:mtqikwov:autmrqhdcnfn",
-  "104.252.62.74:5445:mtqikwov:autmrqhdcnfn",
-  "156.241.53.99:6320:mtqikwov:autmrqhdcnfn",
-  "156.241.52.154:6875:mtqikwov:autmrqhdcnfn",
+  104.252.81.73:5944:mtqikwov:autmrqhdcnfn
+156.241.52.13:6734:mtqikwov:autmrqhdcnfn
+156.241.53.169:6390:mtqikwov:autmrqhdcnfn
+104.252.62.89:5460:mtqikwov:autmrqhdcnfn
+104.252.62.242:5613:mtqikwov:autmrqhdcnfn
+156.241.52.67:6788:mtqikwov:autmrqhdcnfn
+156.241.53.244:6465:mtqikwov:autmrqhdcnfn
+104.252.62.230:5601:mtqikwov:autmrqhdcnfn
+156.241.52.158:6879:mtqikwov:autmrqhdcnfn
+156.241.52.241:6962:mtqikwov:autmrqhdcnfn
+104.252.62.250:5621:mtqikwov:autmrqhdcnfn
+156.241.52.223:6944:mtqikwov:autmrqhdcnfn
+104.252.62.90:5461:mtqikwov:autmrqhdcnfn
+104.252.81.247:6118:mtqikwov:autmrqhdcnfn
+104.252.81.140:6011:mtqikwov:autmrqhdcnfn
+104.252.62.50:5421:mtqikwov:autmrqhdcnfn
+104.252.81.231:6102:mtqikwov:autmrqhdcnfn
+156.241.53.20:6241:mtqikwov:autmrqhdcnfn
+156.241.53.4:6225:mtqikwov:autmrqhdcnfn
+156.241.52.192:6913:mtqikwov:autmrqhdcnfn
+156.241.53.65:6286:mtqikwov:autmrqhdcnfn
+104.252.62.121:5492:mtqikwov:autmrqhdcnfn
+104.252.62.166:5537:mtqikwov:autmrqhdcnfn
+104.252.62.52:5423:mtqikwov:autmrqhdcnfn
+156.241.52.68:6789:mtqikwov:autmrqhdcnfn
+104.252.81.197:6068:mtqikwov:autmrqhdcnfn
+156.241.53.93:6314:mtqikwov:autmrqhdcnfn
+156.241.52.66:6787:mtqikwov:autmrqhdcnfn
+104.252.81.55:5926:mtqikwov:autmrqhdcnfn
+156.241.53.10:6231:mtqikwov:autmrqhdcnfn
+104.252.62.202:5573:mtqikwov:autmrqhdcnfn
+156.241.53.8:6229:mtqikwov:autmrqhdcnfn
+104.252.62.212:5583:mtqikwov:autmrqhdcnfn
+156.241.53.184:6405:mtqikwov:autmrqhdcnfn
+156.241.52.173:6894:mtqikwov:autmrqhdcnfn
+156.241.53.136:6357:mtqikwov:autmrqhdcnfn
+156.241.53.67:6288:mtqikwov:autmrqhdcnfn
+156.241.53.251:6472:mtqikwov:autmrqhdcnfn
+156.241.53.5:6226:mtqikwov:autmrqhdcnfn
+104.252.81.139:6010:mtqikwov:autmrqhdcnfn
+156.241.52.29:6750:mtqikwov:autmrqhdcnfn
+104.252.81.205:6076:mtqikwov:autmrqhdcnfn
+104.252.62.75:5446:mtqikwov:autmrqhdcnfn
+156.241.53.59:6280:mtqikwov:autmrqhdcnfn
+104.252.62.218:5589:mtqikwov:autmrqhdcnfn
+156.241.52.100:6821:mtqikwov:autmrqhdcnfn
+156.241.53.204:6425:mtqikwov:autmrqhdcnfn
+104.252.62.129:5500:mtqikwov:autmrqhdcnfn
+156.241.53.175:6396:mtqikwov:autmrqhdcnfn
+104.252.62.70:5441:mtqikwov:autmrqhdcnfn
+104.252.81.100:5971:mtqikwov:autmrqhdcnfn
+104.252.62.200:5571:mtqikwov:autmrqhdcnfn
+156.241.53.202:6423:mtqikwov:autmrqhdcnfn
+156.241.52.118:6839:mtqikwov:autmrqhdcnfn
+104.252.62.133:5504:mtqikwov:autmrqhdcnfn
+104.252.62.248:5619:mtqikwov:autmrqhdcnfn
+156.241.53.95:6316:mtqikwov:autmrqhdcnfn
+104.252.81.167:6038:mtqikwov:autmrqhdcnfn
+104.252.62.103:5474:mtqikwov:autmrqhdcnfn
+104.252.62.78:5449:mtqikwov:autmrqhdcnfn
+156.241.53.94:6315:mtqikwov:autmrqhdcnfn
+156.241.52.113:6834:mtqikwov:autmrqhdcnfn
+104.252.62.191:5562:mtqikwov:autmrqhdcnfn
+104.252.81.211:6082:mtqikwov:autmrqhdcnfn
+104.252.62.117:5488:mtqikwov:autmrqhdcnfn
+104.252.81.213:6084:mtqikwov:autmrqhdcnfn
+156.241.53.170:6391:mtqikwov:autmrqhdcnfn
+104.252.62.181:5552:mtqikwov:autmrqhdcnfn
+156.241.53.220:6441:mtqikwov:autmrqhdcnfn
+104.252.62.199:5570:mtqikwov:autmrqhdcnfn
+156.241.53.18:6239:mtqikwov:autmrqhdcnfn
+156.241.52.73:6794:mtqikwov:autmrqhdcnfn
+104.252.62.97:5468:mtqikwov:autmrqhdcnfn
+156.241.52.88:6809:mtqikwov:autmrqhdcnfn
+104.252.62.120:5491:mtqikwov:autmrqhdcnfn
+
 ];
 
 export const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1418908479229530223/8_Eg73-4nZL-QoaGKjXIJF0UOxEAMBiuZGRv5CS3VGd11gLvblOgaLNk1UIqmCbTyA6Z";
