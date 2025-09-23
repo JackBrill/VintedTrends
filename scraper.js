@@ -16,7 +16,7 @@ import {
 const BATCH_SIZE = 30;
 const CHECK_INTERVAL = 60 * 1000; // 60 seconds
 const BATCH_DURATION = 5 * 60 * 1000; // 5 minutes per category
-const CONCURRENT_CHECKS = 10;
+const CONCURRENT_CHECKS = 3;
 const VERBOSE_LOGGING = true;
 
 // --- CATEGORY JOBS ---
