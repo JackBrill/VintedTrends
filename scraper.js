@@ -130,7 +130,7 @@ async function scrapeCategory(job) {
                         userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
                     });
                     itemPage = await contextCheck.newPage();
-                    await itemPage.goto(item.link, { waitUntil: "domcontentloaded", timeout: 15000 });
+                    await itemPage.goto(item.link, { waitUntil: "domcontentloaded", timeout: 30000 });
 
                     const soldElement = await itemPage.$('[data-testid="item-status--content"]');
                     if (soldElement && (await soldElement.innerText()).toLowerCase().includes("sold")) {
