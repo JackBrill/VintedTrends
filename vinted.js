@@ -14,7 +14,7 @@ import {
 } from "./config.js";
 
 // Settings
-const BATCH_SIZE = 50; // number of items to track
+const BATCH_SIZE = 70; // number of items to track
 const CHECK_INTERVAL = 60 * 1000; // 60 seconds
 const BATCH_DURATION = 5 * 60 * 1000; // 5 minutes per category
 const CONCURRENT_CHECKS = 10; // Number of items to check at once
