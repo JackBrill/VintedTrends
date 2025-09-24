@@ -12,7 +12,13 @@ class VintedDashboard {
     this.sortDropdown = document.getElementById('sortDropdown');
     this.toggleChartsBtn = document.getElementById('toggleChartsBtn');
     this.chartsSection = document.getElementById('chartsSection');
-    this.categoryTitle = document.getElementById('categoryTitle'); // Make sure this element exists in your HTML
+    this.categoryTitle = document.getElementById('categoryTitle');
+
+    // Mobile navigation elements
+    this.menuBtn = document.getElementById('menu-btn');
+    this.sidebar = document.getElementById('sidebar');
+    this.overlay = document.getElementById('overlay');
+    this.sidebarCloseBtn = document.getElementById('sidebar-close-btn');
 
     // State
     this.allSales = [];
@@ -360,18 +366,18 @@ class VintedDashboard {
     this.resetFiltersBtn.addEventListener('click', () => { window.location.reload(); });
     ['brand', 'color', 'size'].forEach(filterType => this.setupFilter(filterType));
     
-this.toggleChartsBtn.addEventListener('click', () => {
-    this.chartsSection.classList.toggle('charts-visible');
-    const isVisible = this.chartsSection.classList.contains('charts-visible');
-    
-    this.toggleChartsBtn.innerHTML = isVisible
-        ? `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg> Hide Stats`
-        : `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg> Show Stats`;
+    this.toggleChartsBtn.addEventListener('click', () => {
+        this.chartsSection.classList.toggle('charts-visible');
+        const isVisible = this.chartsSection.classList.contains('charts-visible');
+        
+        this.toggleChartsBtn.innerHTML = isVisible
+            ? `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg> Hide Stats`
+            : `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg> Show Stats`;
 
-    if (isVisible) {
-        this.updateCharts();
-    }
-});
+        if (isVisible) {
+            this.updateCharts();
+        }
+    });
 
     if (this.sortBtn) {
         const sortOptionsMap = { 'newest': 'Sort: Most Recent', 'time_asc': 'Sort: Fastest Sale', 'price_asc': 'Sort: Price Low-High', 'price_desc': 'Sort: Price High-Low' };
@@ -397,6 +403,25 @@ this.toggleChartsBtn.addEventListener('click', () => {
             this.renderSales();
         }
     });
+
+    // --- Mobile Sidebar Listeners ---
+    if (this.menuBtn && this.sidebar && this.overlay && this.sidebarCloseBtn) {
+        const openSidebar = () => {
+            this.sidebar.classList.remove('-translate-x-full');
+            this.overlay.classList.remove('hidden');
+        };
+
+        const closeSidebar = () => {
+            this.sidebar.classList.add('-translate-x-full');
+            this.overlay.classList.add('hidden');
+        };
+
+        this.menuBtn.addEventListener('click', openSidebar);
+        this.overlay.addEventListener('click', closeSidebar);
+        this.sidebarCloseBtn.addEventListener('click', closeSidebar);
+    }
+    // --- End Mobile Listeners ---
+
 
     window.addEventListener('click', () => {
       if (this.activeDropdown) {
@@ -464,4 +489,3 @@ this.toggleChartsBtn.addEventListener('click', () => {
 document.addEventListener('DOMContentLoaded', () => {
   window.vintedDashboard = new VintedDashboard();
 });
-
