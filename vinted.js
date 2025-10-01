@@ -23,8 +23,6 @@ const VERBOSE_LOGGING = true;
 // Define the categories to scrape in order
 const categories = [
   { name: "Mens", url: MENS_URL, file: "mens.json" },
-  { name: "Womens", url: WOMENS_URL, file: "womens.json" },
-  { name: "Designer", url: DESIGNER_URL, file: "designer.json" },
   { name: "Shoes", url: SHOES_URL, file: "shoes.json" },
   { name: "Electronics", url: ELECTRONICS_URL, file: "electronics.json" },
 ];
